@@ -1,0 +1,25 @@
+{
+  "strategy": "sanguo_triple_blade",
+  "symbol": "WTI_USDT_PERP",
+  "interval": "60M",
+  "ma": {
+    "liu_bei": 240,
+    "guan_yu": 60,
+    "zhang_fei": 20
+  },
+  "leverage": 5,
+  "investment": 50.0,
+  "stop_loss_pct": 15.0,
+  "trailing": {
+    "start": 15.0,
+    "step": 8.0
+  },
+  "days": 20,
+  "candles": 482,
+  "total_pnl": -20.22,
+  "return_pct": -4.0,
+  "trades": 18,
+  "win_rate": 27.8,
+  "max_dd_pct": 9.0,
+  "profit_factor": 0.66
+}

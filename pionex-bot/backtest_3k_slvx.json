@@ -1,0 +1,23 @@
+{
+  "strategy": "three_kingdoms_v6",
+  "symbol": "SLVX_USDT_PERP",
+  "interval": "4H",
+  "ma": {
+    "liu_bei": 200,
+    "guan_yu": 50,
+    "zhang_fei": 20
+  },
+  "dist_pct": 2.0,
+  "bounce_disabled": true,
+  "initial_capital": 10000.0,
+  "commission": 0.0,
+  "slippage": 0.0,
+  "days": 116,
+  "candles": 698,
+  "final_equity": 16739.33,
+  "return_pct": 67.39,
+  "trades": 6,
+  "win_rate": 50.0,
+  "max_dd_pct": 21.51,
+  "profit_factor": 9.86
+}

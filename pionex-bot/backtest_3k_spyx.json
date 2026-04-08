@@ -1,0 +1,23 @@
+{
+  "strategy": "three_kingdoms_v6",
+  "symbol": "SPYX_USDT_PERP",
+  "interval": "4H",
+  "ma": {
+    "liu_bei": 200,
+    "guan_yu": 50,
+    "zhang_fei": 20
+  },
+  "dist_pct": 2.0,
+  "bounce_disabled": true,
+  "initial_capital": 10000.0,
+  "commission": 0.0,
+  "slippage": 0.0,
+  "days": 234,
+  "candles": 1406,
+  "final_equity": 10263.24,
+  "return_pct": 2.63,
+  "trades": 3,
+  "win_rate": 66.7,
+  "max_dd_pct": 6.4,
+  "profit_factor": 1.78
+}

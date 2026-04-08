@@ -1,0 +1,23 @@
+{
+  "strategy": "three_kingdoms_v6",
+  "symbol": "XAUT_USDT_PERP",
+  "interval": "4H",
+  "ma": {
+    "liu_bei": 200,
+    "guan_yu": 50,
+    "zhang_fei": 20
+  },
+  "dist_pct": 2.0,
+  "bounce_disabled": true,
+  "initial_capital": 10000.0,
+  "commission": 0.0,
+  "slippage": 0.0,
+  "days": 346,
+  "candles": 2077,
+  "final_equity": 11644.03,
+  "return_pct": 16.44,
+  "trades": 16,
+  "win_rate": 37.5,
+  "max_dd_pct": 18.1,
+  "profit_factor": 1.62
+}

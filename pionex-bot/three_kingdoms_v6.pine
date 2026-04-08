@@ -1,0 +1,131 @@
+// This Pine Script™ source code is subject to the terms of the Mozilla Public License 2.0
+// © Three Kingdoms Strategy v6 — DIST=2% + No BounceL + Flip-Only
+
+//@version=6
+strategy("三刀流 v6 — Three Kingdoms MA", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100, initial_capital=10000, commission_type=strategy.commission.percent, commission_value=0, slippage=0, pyramiding=0, currency=currency.USDT, calc_on_every_tick=false, process_orders_on_close=true)
+
+// ══════════════════════════════════════════════════════════
+// 📌 參數設定 (Parameters)
+// ══════════════════════════════════════════════════════════
+
+liuBei   = input.int(200, "劉備 LiuBei (Long MA)",   minval=50,  group="三刀流 MA")
+guanYu   = input.int(50,  "關羽 GuanYu (Mid MA)",     minval=10,  group="三刀流 MA")
+zhangFei = input.int(20,  "張飛 ZhangFei (Short MA)",  minval=5,   group="三刀流 MA")
+
+maDistPct     = input.float(2.0, "MA 距離門檻 (%)", minval=0, step=0.5, tooltip="價格離關羽線必須超過此百分比才觸發信號", group="過濾器")
+disableBounce = input.bool(true, "停用反彈做多 (BounceL)", tooltip="停用熊市反彈做多信號", group="過濾器")
+
+// ══════════════════════════════════════════════════════════
+// 📊 計算均線 (MA Calculation)
+// ══════════════════════════════════════════════════════════
+
+lb = ta.sma(close, liuBei)   // 劉備 — 大方向
+gy = ta.sma(close, guanYu)   // 關羽 — 攻擊線
+zf = ta.sma(close, zhangFei) // 張飛 — 確認線
+
+// ══════════════════════════════════════════════════════════
+// 🎯 信號狀態機 (Signal State Machine)
+// ══════════════════════════════════════════════════════════
+
+// 趨勢判定
+isBull = close > lb
+isBear = close < lb
+
+// MA 距離過濾
+gyDist    = math.abs(close - gy) / gy * 100
+farEnough = maDistPct == 0 or gyDist >= maDistPct
+
+aboveGy = close > gy and farEnough
+belowGy = close < gy and farEnough
+
+// 每根 K 棒的原始信號（0=HOLD, 1=MAIN_LONG, 2=MAIN_SHORT, 3=CORR_SHORT, 4=BOUNCE_LONG）
+// 優先順序：Main > Correction/Bounce > Hold
+var int sigState = 0
+
+int rawSig = 0
+if isBull and aboveGy and close > zf
+    rawSig := 1  // MAIN_LONG
+else if isBear and belowGy and close < zf
+    rawSig := 2  // MAIN_SHORT
+else if not disableBounce and isBear and aboveGy
+    rawSig := 4  // BOUNCE_LONG
+else if isBull and belowGy
+    rawSig := 3  // CORR_SHORT
+
+// 信號方向：1,4=long  2,3=short  0=hold
+int rawDir = rawSig == 1 or rawSig == 4 ? 1 : rawSig == 2 or rawSig == 3 ? -1 : 0
+
+// 偵測信號切換（方向改變 or 從 HOLD 進入有方向信號）
+int prevDir = sigState == 1 or sigState == 4 ? 1 : sigState == 2 or sigState == 3 ? -1 : 0
+bool sigChanged = rawDir != 0 and rawDir != prevDir
+
+// 更新狀態（只在有效信號時更新，HOLD 不改變狀態）
+if rawSig != 0
+    sigState := rawSig
+
+// ══════════════════════════════════════════════════════════
+// 🔄 交易執行 — Flip-Only (只在信號切換時進出場)
+// ══════════════════════════════════════════════════════════
+
+bool enterLong  = sigChanged and rawDir == 1
+bool enterShort = sigChanged and rawDir == -1
+
+string longComment  = rawSig == 1 ? "MainL" : "BounceL"
+string shortComment = rawSig == 2 ? "MainS" : "CorrS"
+
+if enterLong
+    strategy.entry("Long", strategy.long, comment=longComment)
+
+if enterShort
+    strategy.entry("Short", strategy.short, comment=shortComment)
+
+// ══════════════════════════════════════════════════════════
+// 🎨 視覺化 (Visualization)
+// ══════════════════════════════════════════════════════════
+
+// 均線
+plot(lb, "劉備 (200)", color=color.new(color.red, 0),    linewidth=3)
+plot(gy, "關羽 (50)",  color=color.new(color.orange, 0),  linewidth=2)
+plot(zf, "張飛 (20)",  color=color.new(color.aqua, 0),    linewidth=1)
+
+// 關羽距離門檻區
+gyUpper = gy * (1 + maDistPct / 100)
+gyLower = gy * (1 - maDistPct / 100)
+p1 = plot(gyUpper, "GY +DIST", color=color.new(color.orange, 85), linewidth=1, style=plot.style_circles)
+p2 = plot(gyLower, "GY -DIST", color=color.new(color.orange, 85), linewidth=1, style=plot.style_circles)
+fill(p1, p2, color=color.new(color.orange, 92), title="距離門檻區")
+
+// 信號標記 — 只在切換時顯示
+plotshape(enterLong  and rawSig == 1, "MainL",   shape.triangleup,   location.belowbar, color.new(color.green, 0),  size=size.small)
+plotshape(enterLong  and rawSig == 4, "BounceL", shape.triangleup,   location.belowbar, color.new(color.blue, 0),   size=size.tiny)
+plotshape(enterShort and rawSig == 2, "MainS",   shape.triangledown, location.abovebar, color.new(color.red, 0),    size=size.small)
+plotshape(enterShort and rawSig == 3, "CorrS",   shape.triangledown, location.abovebar, color.new(color.purple, 0), size=size.tiny)
+
+// 背景
+bgcolor(isBull ? color.new(color.green, 95) : isBear ? color.new(color.red, 95) : na, title="趨勢背景")
+bgcolor(not farEnough ? color.new(color.gray, 90) : na, title="門檻靜默區")
+
+// ══════════════════════════════════════════════════════════
+// 📋 資訊面板 (Info Panel)
+// ══════════════════════════════════════════════════════════
+
+var table panel = table.new(position.top_right, 2, 7, bgcolor=color.new(color.black, 80), border_width=1)
+
+if barstate.islast
+    string sigName = sigState == 1 ? "MAIN LONG" : sigState == 2 ? "MAIN SHORT" : sigState == 3 ? "CORR SHORT" : sigState == 4 ? "BOUNCE LONG" : "HOLD"
+    color  sigClr  = sigState == 1 ? color.green : sigState == 2 ? color.red : sigState == 3 ? color.purple : sigState == 4 ? color.blue : color.gray
+
+    table.cell(panel, 0, 0, "三刀流 v6", text_color=color.white, text_size=size.normal)
+    table.cell(panel, 1, 0, "DIST=" + str.tostring(maDistPct) + "%", text_color=color.yellow, text_size=size.small)
+    table.cell(panel, 0, 1, "劉備", text_color=color.red, text_size=size.small)
+    table.cell(panel, 1, 1, str.tostring(lb, format.mintick), text_color=color.white, text_size=size.small)
+    table.cell(panel, 0, 2, "關羽", text_color=color.orange, text_size=size.small)
+    table.cell(panel, 1, 2, str.tostring(gy, format.mintick), text_color=color.white, text_size=size.small)
+    table.cell(panel, 0, 3, "張飛", text_color=color.aqua, text_size=size.small)
+    table.cell(panel, 1, 3, str.tostring(zf, format.mintick), text_color=color.white, text_size=size.small)
+    table.cell(panel, 0, 4, "GY距離", text_color=color.gray, text_size=size.small)
+    table.cell(panel, 1, 4, str.tostring(gyDist, "#.##") + "%", text_color=farEnough ? color.green : color.gray, text_size=size.small)
+    table.cell(panel, 0, 5, "趨勢", text_color=color.gray, text_size=size.small)
+    table.cell(panel, 1, 5, isBull ? "BULL" : "BEAR", text_color=isBull ? color.green : color.red, text_size=size.small)
+    table.cell(panel, 0, 6, "信號", text_color=color.gray, text_size=size.small)
+    table.cell(panel, 1, 6, sigName, text_color=sigClr, text_size=size.small)

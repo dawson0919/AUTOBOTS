@@ -1,0 +1,114 @@
+// ThreeBlade Optimized — 3-EMA Alignment + ATR Trailing
+//@version=5
+strategy("ThreeBlade Opt", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1, commission_type=strategy.commission.percent, commission_value=0.0, slippage=0, initial_capital=100000, pyramiding=0, calc_on_every_tick=false)
+
+// ── 交易期間 ──
+i_startDate = input.time(timestamp("2022-01-01 00:00"), "Trade Start", group="PERIOD")
+i_stopDate  = input.time(timestamp("2026-12-31 00:00"), "Trade Stop",  group="PERIOD")
+inDateRange = time >= i_startDate and time <= i_stopDate
+
+// ── EMA（最佳化：3/12/25）──
+i_emaFast = input.int(3,  "EMA Fast",  minval=2,  maxval=20,  group="EMA")
+i_emaMid  = input.int(12, "EMA Mid",   minval=5,  maxval=40,  group="EMA")
+i_emaSlow = input.int(25, "EMA Slow",  minval=10, maxval=100, group="EMA")
+
+// ── ATR（最佳化：SL=2.5 TP=4.0）──
+i_atrPeriod = input.int(14,    "ATR Period",          minval=5,   maxval=50,   group="ATR")
+i_atrSL     = input.float(2.5, "ATR Stop Loss",       minval=0.5, maxval=5.0,  step=0.1, group="ATR")
+i_atrTP     = input.float(4.0, "ATR Trail Activation", minval=1.0, maxval=10.0, step=0.1, group="ATR")
+
+// ── 追蹤（最佳化：EMA 15）──
+i_emaTrail = input.int(15, "Trailing EMA", minval=5, maxval=60, group="TRAIL")
+
+// ═══════════════════════════════════════════════
+//  指標
+// ═══════════════════════════════════════════════
+emaFast  = ta.ema(close, i_emaFast)
+emaMid   = ta.ema(close, i_emaMid)
+emaSlow  = ta.ema(close, i_emaSlow)
+emaTrail = ta.ema(close, i_emaTrail)
+atrValue = ta.atr(i_atrPeriod)
+
+// ═══════════════════════════════════════════════
+//  三線排列偵測
+// ═══════════════════════════════════════════════
+bullAlign    = emaFast > emaMid and emaMid > emaSlow
+bearAlign    = emaFast < emaMid and emaMid < emaSlow
+bullAlignPre = emaFast[1] > emaMid[1] and emaMid[1] > emaSlow[1]
+bearAlignPre = emaFast[1] < emaMid[1] and emaMid[1] < emaSlow[1]
+
+// 進場：排列剛形成
+longEntry  = bullAlign and not bullAlignPre
+shortEntry = bearAlign and not bearAlignPre
+
+// ═══════════════════════════════════════════════
+//  追蹤止盈
+// ═══════════════════════════════════════════════
+var float entryPrice        = na
+var float entryATR          = na
+var bool  trailingActive    = false
+var float trailingStopPrice = na
+
+if strategy.position_size > 0
+    floatPnl = close - entryPrice
+    if not trailingActive and floatPnl >= entryATR * i_atrTP
+        trailingActive    := true
+        trailingStopPrice := emaTrail
+    if trailingActive
+        trailingStopPrice := math.max(nz(trailingStopPrice), emaTrail)
+
+else if strategy.position_size < 0
+    floatPnl = entryPrice - close
+    if not trailingActive and floatPnl >= entryATR * i_atrTP
+        trailingActive    := true
+        trailingStopPrice := emaTrail
+    if trailingActive
+        trailingStopPrice := math.min(nz(trailingStopPrice, 1e10), emaTrail)
+
+else
+    trailingActive    := false
+    trailingStopPrice := na
+
+// ═══════════════════════════════════════════════
+//  執行
+// ═══════════════════════════════════════════════
+if longEntry and inDateRange and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long SL", "Long", stop=close - atrValue * i_atrSL)
+    entryPrice        := close
+    entryATR          := atrValue
+    trailingActive    := false
+    trailingStopPrice := na
+
+if shortEntry and inDateRange and strategy.position_size == 0
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short SL", "Short", stop=close + atrValue * i_atrSL)
+    entryPrice        := close
+    entryATR          := atrValue
+    trailingActive    := false
+    trailingStopPrice := na
+
+// 追蹤止盈平倉
+if strategy.position_size > 0 and trailingActive and not na(trailingStopPrice)
+    if low <= trailingStopPrice
+        strategy.close("Long", comment="Trail")
+
+if strategy.position_size < 0 and trailingActive and not na(trailingStopPrice)
+    if high >= trailingStopPrice
+        strategy.close("Short", comment="Trail")
+
+// ═══════════════════════════════════════════════
+//  視覺化
+// ═══════════════════════════════════════════════
+plot(emaFast,  "EMA Fast",  color=color.new(color.yellow, 20), linewidth=1)
+plot(emaMid,   "EMA Mid",   color=color.new(color.orange, 20), linewidth=2)
+plot(emaSlow,  "EMA Slow",  color=color.new(color.red, 20),    linewidth=2)
+plot(trailingActive ? trailingStopPrice : na, "Trail Stop", color=color.new(color.lime, 0), linewidth=2, style=plot.style_stepline)
+
+plotshape(longEntry  and strategy.position_size == 0 and inDateRange, "Long",  shape.triangleup,   location.belowbar, color.new(color.green, 0), size=size.small)
+plotshape(shortEntry and strategy.position_size == 0 and inDateRange, "Short", shape.triangledown, location.abovebar, color.new(color.red, 0),   size=size.small)
+
+bgcolor(bullAlign ? color.new(color.green, 93) : bearAlign ? color.new(color.red, 93) : na, title="Alignment BG")
+
+alertcondition(longEntry and strategy.position_size == 0, title="Long", message="ThreeBlade LONG")
+alertcondition(shortEntry and strategy.position_size == 0, title="Short", message="ThreeBlade SHORT")

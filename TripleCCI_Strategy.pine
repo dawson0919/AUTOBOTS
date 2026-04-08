@@ -1,0 +1,236 @@
+// This Pine Script™ source code is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Triple CCI Strategy v2 — Aligned Mode
+// 三重 CCI 同向確認 + MFI + EMA 趨勢過濾 + ATR 追蹤止盈
+
+//@version=5
+strategy("Triple CCI v2 (Aligned)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=2, commission_type=strategy.commission.percent, commission_value=0.02, slippage=1, initial_capital=100000, pyramiding=0)
+
+// ═══════════════════════════════════════════════
+//  輸入參數
+// ═══════════════════════════════════════════════
+
+// ── 交易期間 ──
+i_startDate = input.time(timestamp("2023-01-01 00:00"), "Trade Start Date/Time", group="TRADING PERIOD SETTINGS")
+i_stopDate  = input.time(timestamp("2026-01-01 00:00"), "Trade Stop Date/Time",  group="TRADING PERIOD SETTINGS")
+inDateRange = time >= i_startDate and time <= i_stopDate
+
+// ── CCI 設定 ──
+i_cciFast      = input.int(14,  "CCI Fast Length",      minval=5,  maxval=50,  group="CCI SETTINGS")
+i_cciMid       = input.int(30,  "CCI Middle Length",    minval=10, maxval=80,  group="CCI SETTINGS")
+i_cciSlow      = input.int(80,  "CCI Slow Length",      minval=20, maxval=150, group="CCI SETTINGS")
+i_cciThreshold = input.int(20,  "CCI Momentum Threshold", minval=0, maxval=200, tooltip="CCI Fast 穿越 0 軸後需超過此門檻才確認進場", group="CCI SETTINGS")
+
+// ── MFI 設定 ──
+i_mfiLength    = input.int(14,  "MFI Length",           minval=5,  maxval=50,  group="MFI SETTINGS")
+i_mfiLongTh    = input.float(40, "MFI Long Threshold",  minval=20, maxval=80,  group="MFI SETTINGS")
+i_mfiShortTh   = input.float(60, "MFI Short Threshold", minval=20, maxval=80,  group="MFI SETTINGS")
+
+// ── EMA 設定 ──
+i_emaTrend     = input.int(50,  "EMA Trend Length",     minval=10, maxval=200, group="EMA SETTINGS")
+i_emaTrail     = input.int(40,  "Trailing EMA Length",  minval=5,  maxval=100, group="EMA SETTINGS")
+
+// ── ATR / 止損止盈 ──
+i_atrPeriod    = input.int(14,   "ATR Period",          minval=5,  maxval=50,  group="ATR SETTINGS")
+i_atrSL        = input.float(1.8, "ATR Stop Loss Mult", minval=0.5, maxval=5.0, step=0.1, group="ATR SETTINGS")
+i_atrTP        = input.float(2.8, "ATR Trailing Profit Activation", minval=1.0, maxval=10.0, step=0.1, tooltip="浮盈達此倍數 ATR 後啟動追蹤止盈", group="ATR SETTINGS")
+
+// ── 進場嚴格度 ──
+i_minScore     = input.int(4, "Min Score (out of 5)", minval=3, maxval=5, tooltip="進場條件最低分數 (5=最嚴格)", group="ENTRY SETTINGS")
+
+// ═══════════════════════════════════════════════
+//  指標計算
+// ═══════════════════════════════════════════════
+
+// ── 三條 CCI ──
+cciFast = ta.cci(close, i_cciFast)
+cciMid  = ta.cci(close, i_cciMid)
+cciSlow = ta.cci(close, i_cciSlow)
+
+// ── EMA 趨勢 & 追蹤 ──
+emaTrend = ta.ema(close, i_emaTrend)
+emaTrail = ta.ema(close, i_emaTrail)
+
+// ── ATR ──
+atrValue = ta.atr(i_atrPeriod)
+
+// ── MFI（有 volume 時用真實 MFI，無 volume 時用 Pseudo MFI）──
+hasTrueVolume = ta.cum(volume) > 0
+trueMFI = ta.mfi(hlc3, i_mfiLength)
+
+// Pseudo MFI: (close - open) / (high - low) 的滾動正負比例
+pseudoDir   = (high - low) != 0 ? (close - open) / (high - low) : 0.0
+pseudoMag   = high - low
+pseudoPos   = pseudoDir > 0 ? pseudoDir * pseudoMag : 0.0
+pseudoNeg   = pseudoDir < 0 ? math.abs(pseudoDir) * pseudoMag : 0.0
+pseudoPosMA = ta.sma(pseudoPos, i_mfiLength)
+pseudoNegMA = ta.sma(pseudoNeg, i_mfiLength)
+pseudoTotal = pseudoPosMA + pseudoNegMA
+pseudoMFI   = pseudoTotal > 0 ? (pseudoPosMA / pseudoTotal) * 100 : 50.0
+
+mfiValue = hasTrueVolume ? trueMFI : pseudoMFI
+
+// ═══════════════════════════════════════════════
+//  進場條件（同向模式 Aligned）
+// ═══════════════════════════════════════════════
+
+// ── 做多條件 ──
+longCCI1  = ta.crossover(cciFast, 0) and cciFast > i_cciThreshold  // CCI Fast 穿越 0 + 動量
+longCCI2  = cciMid > 0                                               // CCI Mid 同向
+longCCI3  = cciSlow > 0                                              // CCI Slow 同向（嚴格）
+longTrend = close > emaTrend                                         // EMA 趨勢過濾
+longMFI   = mfiValue > i_mfiLongTh                                   // 資金流入
+
+longScore = (longCCI1 ? 1 : 0) + (longCCI2 ? 1 : 0) + (longCCI3 ? 1 : 0) + (longTrend ? 1 : 0) + (longMFI ? 1 : 0)
+longEntry = longScore >= i_minScore and longCCI1
+
+// ── 做空條件 ──
+shortCCI1  = ta.crossunder(cciFast, 0) and cciFast < -i_cciThreshold
+shortCCI2  = cciMid < 0
+shortCCI3  = cciSlow < 0
+shortTrend = close < emaTrend
+shortMFI   = mfiValue < i_mfiShortTh
+
+shortScore = (shortCCI1 ? 1 : 0) + (shortCCI2 ? 1 : 0) + (shortCCI3 ? 1 : 0) + (shortTrend ? 1 : 0) + (shortMFI ? 1 : 0)
+shortEntry = shortScore >= i_minScore and shortCCI1
+
+// ── 平倉信號 ──
+exitLongSignal  = ta.crossunder(cciFast, 0)
+exitShortSignal = ta.crossover(cciFast, 0)
+
+// ═══════════════════════════════════════════════
+//  追蹤止盈邏輯
+// ═══════════════════════════════════════════════
+
+var float entryPrice       = na
+var float stopLossPrice    = na
+var bool  trailingActive   = false
+var float trailingStopPrice = na
+
+// 追蹤止盈啟動 & 更新
+if strategy.position_size > 0
+    // 多單
+    floatPnl = close - entryPrice
+    tpDistance = atrValue * i_atrTP
+    if not trailingActive and floatPnl >= tpDistance
+        trailingActive := true
+        trailingStopPrice := emaTrail
+    if trailingActive
+        trailingStopPrice := math.max(nz(trailingStopPrice), emaTrail)
+
+else if strategy.position_size < 0
+    // 空單
+    floatPnl = entryPrice - close
+    tpDistance = atrValue * i_atrTP
+    if not trailingActive and floatPnl >= tpDistance
+        trailingActive := true
+        trailingStopPrice := emaTrail
+    if trailingActive
+        trailingStopPrice := math.min(nz(trailingStopPrice, 1e10), emaTrail)
+
+else
+    trailingActive := false
+    trailingStopPrice := na
+
+// ═══════════════════════════════════════════════
+//  策略執行
+// ═══════════════════════════════════════════════
+
+// ── 開多 ──
+if longEntry and inDateRange and strategy.position_size == 0
+    sl = close - atrValue * i_atrSL
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long SL", "Long", stop=sl)
+    entryPrice := close
+    stopLossPrice := sl
+    trailingActive := false
+    trailingStopPrice := na
+
+// ── 開空 ──
+if shortEntry and inDateRange and strategy.position_size == 0
+    sl = close + atrValue * i_atrSL
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short SL", "Short", stop=sl)
+    entryPrice := close
+    stopLossPrice := sl
+    trailingActive := false
+    trailingStopPrice := na
+
+// ── 追蹤止盈平倉 ──
+if strategy.position_size > 0 and trailingActive and not na(trailingStopPrice)
+    if low <= trailingStopPrice
+        strategy.close("Long", comment="Trailing TP")
+
+if strategy.position_size < 0 and trailingActive and not na(trailingStopPrice)
+    if high >= trailingStopPrice
+        strategy.close("Short", comment="Trailing TP")
+
+// ── 信號平倉 ──
+if strategy.position_size > 0 and exitLongSignal
+    strategy.close("Long", comment="CCI Exit")
+
+if strategy.position_size < 0 and exitShortSignal
+    strategy.close("Short", comment="CCI Exit")
+
+// ═══════════════════════════════════════════════
+//  視覺化
+// ═══════════════════════════════════════════════
+
+// EMA 趨勢線
+plot(emaTrend, "EMA Trend", color=color.new(color.orange, 30), linewidth=2)
+plot(emaTrail, "EMA Trail", color=color.new(color.gray, 50), linewidth=1, style=plot.style_stepline)
+
+// 追蹤止損線
+plot(trailingActive ? trailingStopPrice : na, "Trailing Stop", color=color.new(color.lime, 0), linewidth=2, style=plot.style_stepline)
+
+// 進場箭頭
+plotshape(longEntry and strategy.position_size == 0 and inDateRange, "Long Entry", shape.triangleup, location.belowbar, color.new(color.green, 0), size=size.small)
+plotshape(shortEntry and strategy.position_size == 0 and inDateRange, "Short Entry", shape.triangledown, location.abovebar, color.new(color.red, 0), size=size.small)
+
+// ═══════════════════════════════════════════════
+//  副圖指標面板
+// ═══════════════════════════════════════════════
+
+// CCI 面板（在獨立窗口顯示）
+var table infoTable = table.new(position.top_right, 3, 6, bgcolor=color.new(color.black, 85), border_width=1)
+
+if barstate.islast
+    table.cell(infoTable, 0, 0, "Indicator", text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 0, "Value",     text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 2, 0, "Status",    text_color=color.white, text_size=size.small)
+
+    table.cell(infoTable, 0, 1, "CCI " + str.tostring(i_cciFast), text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 1, str.tostring(cciFast, "#.0"),      text_color=cciFast > 0 ? color.green : color.red, text_size=size.small)
+    table.cell(infoTable, 2, 1, cciFast > 0 ? "Bullish" : "Bearish", text_color=cciFast > 0 ? color.green : color.red, text_size=size.small)
+
+    table.cell(infoTable, 0, 2, "CCI " + str.tostring(i_cciMid), text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 2, str.tostring(cciMid, "#.0"),      text_color=cciMid > 0 ? color.green : color.red, text_size=size.small)
+    table.cell(infoTable, 2, 2, cciMid > 0 ? "Bullish" : "Bearish", text_color=cciMid > 0 ? color.green : color.red, text_size=size.small)
+
+    table.cell(infoTable, 0, 3, "CCI " + str.tostring(i_cciSlow), text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 3, str.tostring(cciSlow, "#.0"),      text_color=cciSlow > 0 ? color.green : color.red, text_size=size.small)
+    table.cell(infoTable, 2, 3, cciSlow > 0 ? "Bullish" : "Bearish", text_color=cciSlow > 0 ? color.green : color.red, text_size=size.small)
+
+    table.cell(infoTable, 0, 4, "MFI",        text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 4, str.tostring(mfiValue, "#.0"), text_color=mfiValue > 50 ? color.green : color.red, text_size=size.small)
+    table.cell(infoTable, 2, 4, mfiValue > 50 ? "Inflow" : "Outflow", text_color=mfiValue > 50 ? color.green : color.red, text_size=size.small)
+
+    table.cell(infoTable, 0, 5, "Trailing",   text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 5, trailingActive ? "ACTIVE" : "OFF", text_color=trailingActive ? color.lime : color.gray, text_size=size.small)
+    table.cell(infoTable, 2, 5, trailingActive ? str.tostring(trailingStopPrice, "#.0") : "-", text_color=color.white, text_size=size.small)
+
+// ═══════════════════════════════════════════════
+//  背景色（趨勢方向）
+// ═══════════════════════════════════════════════
+trendBull = cciFast > 0 and cciMid > 0 and cciSlow > 0
+trendBear = cciFast < 0 and cciMid < 0 and cciSlow < 0
+bgcolor(trendBull ? color.new(color.green, 93) : trendBear ? color.new(color.red, 93) : na, title="Trend BG")
+
+// ═══════════════════════════════════════════════
+//  Alert 條件
+// ═══════════════════════════════════════════════
+alertcondition(longEntry,  title="Long Entry",  message="Triple CCI: LONG Entry | Score={{longScore}}/5 | CCI Fast={{cciFast}} | Price={{close}}")
+alertcondition(shortEntry, title="Short Entry", message="Triple CCI: SHORT Entry | Score={{shortScore}}/5 | CCI Fast={{cciFast}} | Price={{close}}")
+alertcondition(exitLongSignal and strategy.position_size > 0,  title="Exit Long",  message="Triple CCI: EXIT LONG | CCI Fast crossed below 0")
+alertcondition(exitShortSignal and strategy.position_size < 0, title="Exit Short", message="Triple CCI: EXIT SHORT | CCI Fast crossed above 0")
+alertcondition(trailingActive and strategy.position_size != 0, title="Trailing Active", message="Triple CCI: Trailing TP Activated | Trail Stop={{trailingStopPrice}}")

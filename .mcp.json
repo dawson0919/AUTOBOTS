@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pionex-trade": {
+      "command": "npx",
+      "args": ["-y", "@pionex/pionex-trade-mcp"]
+    }
+  }
+}

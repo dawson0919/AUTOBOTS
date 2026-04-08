@@ -1,0 +1,13 @@
+{
+  "active_grid_id": "9f664db9-bbe3-401e-bd09-209dc3751811",
+  "active_trend": "short",
+  "grid_create_time": 1774786774.2425573,
+  "signal_history": [
+    {
+      "time": "2026-03-29 20:19:33",
+      "signal": "MEDIUM_SHORT",
+      "strength": 2,
+      "price": 1993.67
+    }
+  ]
+}

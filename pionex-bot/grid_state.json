@@ -1,0 +1,168 @@
+{
+  "levels": [
+    {
+      "index": 0,
+      "price": 62000.0,
+      "side": "BUY",
+      "order_id": "dry-0-1774729624",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 1,
+      "price": 62526.32,
+      "side": "BUY",
+      "order_id": "dry-1-1774729624",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 2,
+      "price": 63052.63,
+      "side": "BUY",
+      "order_id": "dry-2-1774729625",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 3,
+      "price": 63578.95,
+      "side": "BUY",
+      "order_id": "dry-3-1774729625",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 4,
+      "price": 64105.26,
+      "side": "BUY",
+      "order_id": "dry-4-1774729625",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 5,
+      "price": 64631.58,
+      "side": "BUY",
+      "order_id": "dry-5-1774729625",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 6,
+      "price": 65157.89,
+      "side": "BUY",
+      "order_id": "dry-6-1774729625",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 7,
+      "price": 65684.21,
+      "side": "BUY",
+      "order_id": "dry-7-1774729626",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 8,
+      "price": 66210.53,
+      "side": "BUY",
+      "order_id": "dry-8-1774729626",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 9,
+      "price": 66736.84,
+      "side": "BUY",
+      "order_id": "dry-9-1774729626",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 10,
+      "price": 67263.16,
+      "side": "SELL",
+      "order_id": "dry-10-1774729626",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 11,
+      "price": 67789.47,
+      "side": "SELL",
+      "order_id": "dry-11-1774729627",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 12,
+      "price": 68315.79,
+      "side": "SELL",
+      "order_id": "dry-12-1774729627",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 13,
+      "price": 68842.11,
+      "side": "SELL",
+      "order_id": "dry-13-1774729627",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 14,
+      "price": 69368.42,
+      "side": "SELL",
+      "order_id": "dry-14-1774729627",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 15,
+      "price": 69894.74,
+      "side": "SELL",
+      "order_id": "dry-15-1774729627",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 16,
+      "price": 70421.05,
+      "side": "SELL",
+      "order_id": "dry-16-1774729628",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 17,
+      "price": 70947.37,
+      "side": "SELL",
+      "order_id": "dry-17-1774729628",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 18,
+      "price": 71473.68,
+      "side": "SELL",
+      "order_id": "dry-18-1774729628",
+      "is_filled": false,
+      "is_active": true
+    },
+    {
+      "index": 19,
+      "price": 72000.0,
+      "side": "SELL",
+      "order_id": "dry-19-1774729628",
+      "is_filled": false,
+      "is_active": true
+    }
+  ],
+  "total_profit": 0.0,
+  "total_trades": 0,
+  "total_fees": 0.0,
+  "grid_created": true
+}

@@ -1,0 +1,23 @@
+{
+  "strategy": "three_kingdoms_v6",
+  "symbol": "TSLAX_USDT_PERP",
+  "interval": "4H",
+  "ma": {
+    "liu_bei": 200,
+    "guan_yu": 50,
+    "zhang_fei": 20
+  },
+  "dist_pct": 2.0,
+  "bounce_disabled": true,
+  "initial_capital": 10000.0,
+  "commission": 0.0,
+  "slippage": 0.0,
+  "days": 234,
+  "candles": 1406,
+  "final_equity": 13941.91,
+  "return_pct": 39.42,
+  "trades": 10,
+  "win_rate": 40.0,
+  "max_dd_pct": 28.73,
+  "profit_factor": 2.91
+}

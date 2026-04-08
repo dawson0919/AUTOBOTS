@@ -1,0 +1,25 @@
+{
+  "strategy": "sanguo_triple_blade",
+  "symbol": "BTC_USDT_PERP",
+  "interval": "60M",
+  "ma": {
+    "liu_bei": 240,
+    "guan_yu": 60,
+    "zhang_fei": 20
+  },
+  "leverage": 5,
+  "investment": 50.0,
+  "stop_loss_pct": 15.0,
+  "trailing": {
+    "start": 15.0,
+    "step": 8.0
+  },
+  "days": 166,
+  "candles": 3993,
+  "total_pnl": -158.08,
+  "return_pct": -31.6,
+  "trades": 246,
+  "win_rate": 19.9,
+  "max_dd_pct": 34.6,
+  "profit_factor": 0.69
+}

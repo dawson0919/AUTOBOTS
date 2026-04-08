@@ -1,0 +1,62 @@
+# 三刀流 v6 — 15M Scalping Bots
+# Independent from 1H bots — runs with: python signal_manager.py --config perp_bots_15m.toml
+
+[global]
+interval = "15M"
+poll_minutes = 15
+dry_run = true
+max_flips_per_day = 4
+log_level = "INFO"
+cooldown_seconds = 10
+mtf_confirm = false
+
+[bots.btc_15m]
+symbol = "BTC_USDT_PERP"
+base = "BTC.PERP"
+quote = "USDT"
+liu_bei = 400
+guan_yu = 100
+zhang_fei = 10
+dist_pct = 2.0
+disable_bounce = true
+grid_bottom = "58000"
+grid_top = "78000"
+grid_rows = 50
+grid_type = "arithmetic"
+leverage = 5
+investment = "100"
+bu_order_id = ""
+
+[bots.eth_15m]
+symbol = "ETH_USDT_PERP"
+base = "ETH.PERP"
+quote = "USDT"
+liu_bei = 400
+guan_yu = 80
+zhang_fei = 10
+dist_pct = 2.0
+disable_bounce = false
+grid_bottom = "1700"
+grid_top = "2400"
+grid_rows = 50
+grid_type = "arithmetic"
+leverage = 5
+investment = "100"
+bu_order_id = ""
+
+[bots.sol_15m]
+symbol = "SOL_USDT_PERP"
+base = "SOL.PERP"
+quote = "USDT"
+liu_bei = 400
+guan_yu = 80
+zhang_fei = 10
+dist_pct = 3.0
+disable_bounce = false
+grid_bottom = "60"
+grid_top = "100"
+grid_rows = 40
+grid_type = "arithmetic"
+leverage = 5
+investment = "100"
+bu_order_id = ""

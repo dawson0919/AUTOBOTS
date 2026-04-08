@@ -1,0 +1,482 @@
+[
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 8,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 16.28,
+    "trades": 12,
+    "win_rate": 25.0,
+    "max_dd": 4.6,
+    "profit_factor": 1.58,
+    "sharpe": 0.53,
+    "exits": {
+      "sl": 4,
+      "trail": 0,
+      "signal": 8
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 20,
+      "ma_slow": 60,
+      "min_strength": 2,
+      "leverage": 5,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 18.53,
+    "trades": 8,
+    "win_rate": 50.0,
+    "max_dd": 6.5,
+    "profit_factor": 1.55,
+    "sharpe": 0.49,
+    "exits": {
+      "sl": 3,
+      "trail": 0,
+      "signal": 5
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 30,
+      "ma_slow": 60,
+      "min_strength": 2,
+      "leverage": 5,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 17.16,
+    "trades": 9,
+    "win_rate": 44.4,
+    "max_dd": 6.9,
+    "profit_factor": 1.47,
+    "sharpe": 0.45,
+    "exits": {
+      "sl": 3,
+      "trail": 0,
+      "signal": 6
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 20,
+      "trailing_start_pct": 10,
+      "trailing_step_pct": 8
+    },
+    "pnl": 14.38,
+    "trades": 14,
+    "win_rate": 50.0,
+    "max_dd": 4.5,
+    "profit_factor": 1.5,
+    "sharpe": 0.57,
+    "exits": {
+      "sl": 0,
+      "trail": 6,
+      "signal": 8
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 14.44,
+    "trades": 9,
+    "win_rate": 33.3,
+    "max_dd": 4.9,
+    "profit_factor": 1.48,
+    "sharpe": 0.46,
+    "exits": {
+      "sl": 2,
+      "trail": 0,
+      "signal": 7
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 20,
+      "trailing_start_pct": 10,
+      "trailing_step_pct": 10
+    },
+    "pnl": 13.76,
+    "trades": 15,
+    "win_rate": 46.7,
+    "max_dd": 4.6,
+    "profit_factor": 1.49,
+    "sharpe": 0.57,
+    "exits": {
+      "sl": 0,
+      "trail": 7,
+      "signal": 8
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 8,
+      "trailing_start_pct": 20,
+      "trailing_step_pct": 10
+    },
+    "pnl": 13.77,
+    "trades": 15,
+    "win_rate": 40.0,
+    "max_dd": 4.6,
+    "profit_factor": 1.49,
+    "sharpe": 0.57,
+    "exits": {
+      "sl": 4,
+      "trail": 3,
+      "signal": 8
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 8,
+      "trailing_start_pct": 20,
+      "trailing_step_pct": 8
+    },
+    "pnl": 14.27,
+    "trades": 15,
+    "win_rate": 33.3,
+    "max_dd": 4.6,
+    "profit_factor": 1.44,
+    "sharpe": 0.53,
+    "exits": {
+      "sl": 5,
+      "trail": 2,
+      "signal": 8
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 5,
+      "stop_loss_pct": 10,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 19.29,
+    "trades": 13,
+    "win_rate": 23.1,
+    "max_dd": 8.9,
+    "profit_factor": 1.35,
+    "sharpe": 0.37,
+    "exits": {
+      "sl": 7,
+      "trail": 0,
+      "signal": 6
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 5,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 18.95,
+    "trades": 12,
+    "win_rate": 25.0,
+    "max_dd": 8.9,
+    "profit_factor": 1.35,
+    "sharpe": 0.36,
+    "exits": {
+      "sl": 4,
+      "trail": 0,
+      "signal": 8
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 8,
+      "trailing_start_pct": 15,
+      "trailing_step_pct": 10
+    },
+    "pnl": 13.35,
+    "trades": 16,
+    "win_rate": 43.8,
+    "max_dd": 4.7,
+    "profit_factor": 1.48,
+    "sharpe": 0.56,
+    "exits": {
+      "sl": 4,
+      "trail": 4,
+      "signal": 8
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 60,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 11.21,
+    "trades": 7,
+    "win_rate": 42.9,
+    "max_dd": 3.9,
+    "profit_factor": 1.56,
+    "sharpe": 0.49,
+    "exits": {
+      "sl": 1,
+      "trail": 0,
+      "signal": 6
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 30,
+      "ma_slow": 60,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 11.21,
+    "trades": 7,
+    "win_rate": 42.9,
+    "max_dd": 3.9,
+    "profit_factor": 1.56,
+    "sharpe": 0.49,
+    "exits": {
+      "sl": 1,
+      "trail": 0,
+      "signal": 6
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 10,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 5,
+      "stop_loss_pct": 10,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 16.06,
+    "trades": 10,
+    "win_rate": 30.0,
+    "max_dd": 8.1,
+    "profit_factor": 1.38,
+    "sharpe": 0.36,
+    "exits": {
+      "sl": 5,
+      "trail": 0,
+      "signal": 5
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 20,
+      "trailing_step_pct": 8
+    },
+    "pnl": 12.72,
+    "trades": 11,
+    "win_rate": 45.5,
+    "max_dd": 4.9,
+    "profit_factor": 1.43,
+    "sharpe": 0.47,
+    "exits": {
+      "sl": 2,
+      "trail": 2,
+      "signal": 7
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 50,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 20,
+      "trailing_start_pct": 0,
+      "trailing_step_pct": 5
+    },
+    "pnl": 12.81,
+    "trades": 9,
+    "win_rate": 33.3,
+    "max_dd": 5.2,
+    "profit_factor": 1.41,
+    "sharpe": 0.39,
+    "exits": {
+      "sl": 1,
+      "trail": 0,
+      "signal": 8
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 60,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 20,
+      "trailing_step_pct": 10
+    },
+    "pnl": 10.79,
+    "trades": 8,
+    "win_rate": 37.5,
+    "max_dd": 3.9,
+    "profit_factor": 1.52,
+    "sharpe": 0.46,
+    "exits": {
+      "sl": 1,
+      "trail": 1,
+      "signal": 6
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 30,
+      "ma_slow": 60,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 20,
+      "trailing_step_pct": 10
+    },
+    "pnl": 10.79,
+    "trades": 8,
+    "win_rate": 37.5,
+    "max_dd": 3.9,
+    "profit_factor": 1.52,
+    "sharpe": 0.46,
+    "exits": {
+      "sl": 1,
+      "trail": 1,
+      "signal": 6
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 25,
+      "ma_slow": 60,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 20,
+      "trailing_step_pct": 8
+    },
+    "pnl": 11.02,
+    "trades": 8,
+    "win_rate": 37.5,
+    "max_dd": 3.9,
+    "profit_factor": 1.47,
+    "sharpe": 0.45,
+    "exits": {
+      "sl": 1,
+      "trail": 1,
+      "signal": 6
+    }
+  },
+  {
+    "params": {
+      "interval": "60M",
+      "ma_fast": 14,
+      "ma_mid": 30,
+      "ma_slow": 60,
+      "min_strength": 2,
+      "leverage": 3,
+      "stop_loss_pct": 15,
+      "trailing_start_pct": 20,
+      "trailing_step_pct": 8
+    },
+    "pnl": 11.02,
+    "trades": 8,
+    "win_rate": 37.5,
+    "max_dd": 3.9,
+    "profit_factor": 1.47,
+    "sharpe": 0.45,
+    "exits": {
+      "sl": 1,
+      "trail": 1,
+      "signal": 6
+    }
+  }
+]

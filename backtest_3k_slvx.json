@@ -1,0 +1,25 @@
+{
+  "strategy": "three_kingdoms_triple_blade",
+  "symbol": "SLVX_USDT_PERP",
+  "interval": "60M",
+  "ma": {
+    "liu_bei": 200,
+    "guan_yu": 50,
+    "zhang_fei": 20
+  },
+  "leverage": 1,
+  "investment": 50.0,
+  "stop_loss_pct": 0.0,
+  "trailing": {
+    "start": 10.0,
+    "step": 5.0
+  },
+  "days": 116,
+  "candles": 2790,
+  "total_pnl": 24.66,
+  "return_pct": 4.9,
+  "trades": 24,
+  "win_rate": 33.3,
+  "max_dd_pct": 1.1,
+  "profit_factor": 1.9
+}

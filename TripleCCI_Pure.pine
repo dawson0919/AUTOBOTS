@@ -1,0 +1,116 @@
+// Triple CCI Pure — 最佳化版，反轉出場
+//@version=5
+strategy("Triple CCI Pure", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1, commission_type=strategy.commission.percent, commission_value=0.0, slippage=0, initial_capital=100000, pyramiding=0, calc_on_every_tick=false)
+
+i_startDate = input.time(timestamp("2022-01-01 00:00"), "Trade Start", group="PERIOD")
+i_stopDate  = input.time(timestamp("2026-12-31 00:00"), "Trade Stop",  group="PERIOD")
+inDateRange = time >= i_startDate and time <= i_stopDate
+
+// ── CCI（最佳化：14/20/50）──
+i_cciFast = input.int(14, "CCI Fast",   minval=5,  maxval=50,  group="CCI")
+i_cciMid  = input.int(20, "CCI Middle", minval=10, maxval=80,  group="CCI")
+i_cciSlow = input.int(50, "CCI Slow",   minval=20, maxval=150, group="CCI")
+
+// ── ATR（最佳化：SL=1.0 緊止損，TP=4.0 遠啟動）──
+i_atrPeriod = input.int(14,    "ATR Period",          minval=5,   maxval=50,   group="ATR")
+i_atrSL     = input.float(1.0, "ATR Stop Loss",       minval=0.5, maxval=5.0,  step=0.1, group="ATR")
+i_atrTP     = input.float(4.0, "ATR Trail Activation", minval=1.0, maxval=10.0, step=0.1, group="ATR")
+
+// ── 追蹤（最佳化：EMA 40）──
+i_emaTrail = input.int(40, "Trailing EMA", minval=5, maxval=100, group="TRAIL")
+
+// ═══════════════════════════════════════════════
+cciFast = ta.cci(close, i_cciFast)
+cciMid  = ta.cci(close, i_cciMid)
+cciSlow = ta.cci(close, i_cciSlow)
+emaTrail = ta.ema(close, i_emaTrail)
+atrValue = ta.atr(i_atrPeriod)
+
+// ═══════════════════════════════════════════════
+//  進場：三 CCI 同向
+// ═══════════════════════════════════════════════
+longEntry  = ta.crossover(cciFast, 0) and cciMid > 0 and cciSlow > 0
+shortEntry = ta.crossunder(cciFast, 0) and cciMid < 0 and cciSlow < 0
+
+// ═══════════════════════════════════════════════
+//  出場：反向三 CCI 同向（非簡單穿越）
+// ═══════════════════════════════════════════════
+reverseLong  = cciFast < 0 and cciMid < 0 and cciSlow < 0  // 三空才平多
+reverseShort = cciFast > 0 and cciMid > 0 and cciSlow > 0  // 三多才平空
+
+// ═══════════════════════════════════════════════
+//  追蹤止盈
+// ═══════════════════════════════════════════════
+var float entryPrice        = na
+var float entryATR          = na
+var bool  trailingActive    = false
+var float trailingStopPrice = na
+
+if strategy.position_size > 0
+    floatPnl = close - entryPrice
+    if not trailingActive and floatPnl >= entryATR * i_atrTP
+        trailingActive    := true
+        trailingStopPrice := emaTrail
+    if trailingActive
+        trailingStopPrice := math.max(nz(trailingStopPrice), emaTrail)
+
+else if strategy.position_size < 0
+    floatPnl = entryPrice - close
+    if not trailingActive and floatPnl >= entryATR * i_atrTP
+        trailingActive    := true
+        trailingStopPrice := emaTrail
+    if trailingActive
+        trailingStopPrice := math.min(nz(trailingStopPrice, 1e10), emaTrail)
+
+else
+    trailingActive    := false
+    trailingStopPrice := na
+
+// ═══════════════════════════════════════════════
+//  執行
+// ═══════════════════════════════════════════════
+if longEntry and inDateRange and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long SL", "Long", stop=close - atrValue * i_atrSL)
+    entryPrice        := close
+    entryATR          := atrValue
+    trailingActive    := false
+    trailingStopPrice := na
+
+if shortEntry and inDateRange and strategy.position_size == 0
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short SL", "Short", stop=close + atrValue * i_atrSL)
+    entryPrice        := close
+    entryATR          := atrValue
+    trailingActive    := false
+    trailingStopPrice := na
+
+// 追蹤止盈
+if strategy.position_size > 0 and trailingActive and not na(trailingStopPrice)
+    if low <= trailingStopPrice
+        strategy.close("Long", comment="Trail")
+
+if strategy.position_size < 0 and trailingActive and not na(trailingStopPrice)
+    if high >= trailingStopPrice
+        strategy.close("Short", comment="Trail")
+
+// 反轉出場（三 CCI 完全反向才平倉）
+if strategy.position_size > 0 and reverseLong
+    strategy.close("Long", comment="Reverse")
+
+if strategy.position_size < 0 and reverseShort
+    strategy.close("Short", comment="Reverse")
+
+// ═══════════════════════════════════════════════
+//  視覺化
+// ═══════════════════════════════════════════════
+plot(emaTrail, "Trail EMA", color=color.new(color.gray, 50), linewidth=1)
+plot(trailingActive ? trailingStopPrice : na, "Trail Stop", color=color.new(color.lime, 0), linewidth=2, style=plot.style_stepline)
+
+plotshape(longEntry  and strategy.position_size == 0, "Long",  shape.triangleup,   location.belowbar, color.new(color.green, 0), size=size.small)
+plotshape(shortEntry and strategy.position_size == 0, "Short", shape.triangledown, location.abovebar, color.new(color.red, 0),   size=size.small)
+
+bgcolor(cciFast > 0 and cciMid > 0 and cciSlow > 0 ? color.new(color.green, 93) : cciFast < 0 and cciMid < 0 and cciSlow < 0 ? color.new(color.red, 93) : na)
+
+alertcondition(longEntry and strategy.position_size == 0, title="Long", message="CCI Pure LONG")
+alertcondition(shortEntry and strategy.position_size == 0, title="Short", message="CCI Pure SHORT")

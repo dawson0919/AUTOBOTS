@@ -1,0 +1,25 @@
+{
+  "strategy": "three_kingdoms_triple_blade",
+  "symbol": "ETH_USDT_PERP",
+  "interval": "60M",
+  "ma": {
+    "liu_bei": 200,
+    "guan_yu": 50,
+    "zhang_fei": 20
+  },
+  "leverage": 1,
+  "investment": 50.0,
+  "stop_loss_pct": 0.0,
+  "trailing": {
+    "start": 10.0,
+    "step": 5.0
+  },
+  "days": 417,
+  "candles": 10001,
+  "total_pnl": 34.48,
+  "return_pct": 6.9,
+  "trades": 98,
+  "win_rate": 35.7,
+  "max_dd_pct": 5.6,
+  "profit_factor": 1.31
+}

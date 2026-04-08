@@ -1,0 +1,24 @@
+{
+  "strategy": "three_kingdoms_v6",
+  "symbol": "BTC_USDT_PERP",
+  "interval": "15M",
+  "ma": {
+    "liu_bei": 200,
+    "guan_yu": 50,
+    "zhang_fei": 20
+  },
+  "dist_pct": 2.0,
+  "bounce_disabled": true,
+  "initial_capital": 10000.0,
+  "leverage": 5.0,
+  "commission": 0.0005,
+  "slippage": 0.0005,
+  "days": 104,
+  "candles": 10001,
+  "final_equity": 6280.21,
+  "return_pct": -37.2,
+  "trades": 25,
+  "win_rate": 48.0,
+  "max_dd_pct": 74.63,
+  "profit_factor": 1.11
+}

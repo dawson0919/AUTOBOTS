@@ -1,0 +1,164 @@
+# 三刀流 v6 Signal Manager — Bot Configuration
+# Each [bots.XXX] section defines one managed bot.
+
+[global]
+interval = "60M"          # Kline interval (Pionex API format: 60M = 1H)
+poll_minutes = 60          # Check every N minutes (match candle close)
+dry_run = false            # LIVE MODE — real trading enabled
+max_flips_per_day = 2      # Max direction changes per symbol per 24h
+cooldown_seconds = 10      # Wait between cancel and create
+log_level = "INFO"
+mtf_confirm = false        # Multi-timeframe: require 4H agreement before flipping
+
+[bots.xaut]
+symbol = "XAUT_USDT_PERP"
+base = "XAUT.PERP"
+quote = "USDT"
+liu_bei = 100
+guan_yu = 30
+zhang_fei = 10
+dist_pct = 1.5
+disable_bounce = true
+grid_bottom = "4000"
+grid_top = "5000"
+grid_rows = 50
+grid_type = "arithmetic"
+leverage = 5
+investment = "300"
+bu_order_id = "18ad987a-8cd5-4183-a1d6-637913a823f2"
+
+[bots.sol]
+symbol = "SOL_USDT_PERP"
+base = "SOL.PERP"
+quote = "USDT"
+liu_bei = 250
+guan_yu = 50
+zhang_fei = 10
+dist_pct = 1.5
+disable_bounce = true
+grid_bottom = "70"
+grid_top = "95"
+grid_rows = 40
+grid_type = "arithmetic"
+leverage = 5
+investment = "280"
+bu_order_id = "88efd01e-3364-449c-a3d0-70e478f55482"
+
+[bots.slvx]
+symbol = "SLVX_USDT_PERP"
+base = "SLVX.PERP"
+quote = "USDT"
+liu_bei = 300
+guan_yu = 60
+zhang_fei = 10
+dist_pct = 3.0
+disable_bounce = false
+grid_bottom = "55"
+grid_top = "75"
+grid_rows = 30
+grid_type = "arithmetic"
+leverage = 5
+investment = "300"
+bu_order_id = "70c12fa7-adab-4ef3-9141-c10c57524f21"
+
+[bots.paxg]
+symbol = "PAXG_USDT_PERP"
+base = "PAXG.PERP"
+quote = "USDT"
+liu_bei = 300
+guan_yu = 30
+zhang_fei = 10
+dist_pct = 1.5
+disable_bounce = false
+grid_bottom = "4000"
+grid_top = "5000"
+grid_rows = 50
+grid_type = "arithmetic"
+leverage = 5
+investment = "300"
+bu_order_id = "4a725a07-44f4-457a-b839-2dea91710cef"
+
+[bots.btc]
+symbol = "BTC_USDT_PERP"
+base = "BTC.PERP"
+quote = "USDT"
+liu_bei = 200
+guan_yu = 50
+zhang_fei = 20
+dist_pct = 2.0
+disable_bounce = true
+grid_bottom = "65000"
+grid_top = "74000"
+grid_rows = 30
+grid_type = "arithmetic"
+leverage = 5
+investment = "80"
+bu_order_id = "ea63b599-8d67-4e17-9836-86ed74b9ffcb"
+
+[bots.eth]
+symbol = "ETH_USDT_PERP"
+base = "ETH.PERP"
+quote = "USDT"
+liu_bei = 200
+guan_yu = 50
+zhang_fei = 20
+dist_pct = 2.0
+disable_bounce = true
+grid_bottom = "1500"
+grid_top = "4500"
+grid_rows = 50
+grid_type = "arithmetic"
+leverage = 5
+investment = "125"
+bu_order_id = "781bac54-dde0-4e53-8793-714bedac1bd0"
+
+[bots.usox]
+symbol = "USOX_USDT_PERP"
+base = "USOX.PERP"
+quote = "USDT"
+liu_bei = 100
+guan_yu = 80
+zhang_fei = 10
+dist_pct = 1.0
+disable_bounce = false
+grid_bottom = "100"
+grid_top = "145"
+grid_rows = 40
+grid_type = "geometric"
+leverage = 5
+investment = "125"
+bu_order_id = "b96e8b2b-d288-41cd-9e96-3c937dbcefb6"
+
+[bots.qqqx]
+symbol = "QQQX_USDT_PERP"
+base = "QQQX.PERP"
+quote = "USDT"
+liu_bei = 200
+guan_yu = 50
+zhang_fei = 20
+dist_pct = 0.5
+disable_bounce = true
+grid_bottom = "530"
+grid_top = "620"
+grid_rows = 30
+grid_type = "arithmetic"
+leverage = 5
+investment = "50"
+bu_order_id = "a012761e-225d-443c-a573-8bbca137227a"
+
+[bots.doge]
+symbol = "DOGE_USDT_PERP"
+base = "DOGE.PERP"
+quote = "USDT"
+liu_bei = 150
+guan_yu = 30
+zhang_fei = 20
+dist_pct = 0
+disable_bounce = true
+grid_bottom = "0.06"
+grid_top = "0.15"
+grid_rows = 40
+grid_type = "arithmetic"
+leverage = 5
+investment = "35"
+bu_order_id = "767e8221-72d6-4ffe-99a0-8e0abcbf30b3"

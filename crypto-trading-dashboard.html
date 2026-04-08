@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoBot Pro — 即時儀表板</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#050a0e;--surface:#0a1520;--border:#0d2233;
+    --accent:#00d4ff;--accent2:#00ff88;--warn:#ff6b35;--danger:#ff3366;
+    --text:#c8e6f5;--muted:#4a7a9b;--up:#00ff88;--down:#ff3366;
+    --glow:0 0 20px rgba(0,212,255,0.3);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;
+    background-image:radial-gradient(ellipse at 10% 20%,rgba(0,212,255,.04) 0%,transparent 50%),
+    radial-gradient(ellipse at 90% 80%,rgba(0,255,136,.03) 0%,transparent 50%);}
+  body::before{content:'';position:fixed;inset:0;
+    background-image:linear-gradient(rgba(0,212,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,.03) 1px,transparent 1px);
+    background-size:40px 40px;pointer-events:none;z-index:0;}
+  .wrap{max-width:1600px;margin:0 auto;padding:0 20px;position:relative;z-index:1;}
+
+  /* HEADER */
+  header{border-bottom:1px solid var(--border);padding:13px 0;position:sticky;top:0;
+    background:rgba(5,10,14,.96);backdrop-filter:blur(20px);z-index:100;}
+  .h-inner{display:flex;align-items:center;justify-content:space-between;}
+  .logo{display:flex;align-items:center;gap:11px;}
+  .logo-hex{width:36px;height:36px;background:linear-gradient(135deg,rgba(0,212,255,.2),rgba(0,255,136,.1));
+    border:1px solid var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+    display:flex;align-items:center;justify-content:center;animation:hue 8s linear infinite;}
+  @keyframes hue{to{filter:hue-rotate(360deg);}}
+  .logo-text{font-weight:900;font-size:17px;letter-spacing:2px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .logo-sub{font-family:'Share Tech Mono';font-size:9px;color:var(--muted);letter-spacing:3px;}
+  .hbar{display:flex;align-items:center;gap:18px;font-family:'Share Tech Mono';font-size:11px;}
+  .hi{display:flex;align-items:center;gap:6px;}
+  .dot{width:7px;height:7px;border-radius:50%;}
+  .dot.ok{background:var(--up);box-shadow:0 0 8px var(--up);animation:pulse 2s infinite;}
+  .dot.err{background:var(--down);box-shadow:0 0 8px var(--down);}
+  .dot.load{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:pulse 1s infinite;}
+  @keyframes pulse{50%{opacity:.4;}}
+  .lbl{color:var(--muted);}
+  #apiStatus{padding:2px 8px;font-size:10px;border-radius:2px;font-weight:700;letter-spacing:1px;}
+  .s-ok{background:rgba(0,255,136,.15);color:var(--up);border:1px solid rgba(0,255,136,.3);}
+  .s-err{background:rgba(255,51,102,.15);color:var(--down);border:1px solid rgba(255,51,102,.3);}
+  .s-load{background:rgba(0,212,255,.1);color:var(--accent);border:1px solid rgba(0,212,255,.3);}
+
+  /* CONFIG BAR */
+  .cbar{background:rgba(0,212,255,.03);border-bottom:1px solid var(--border);padding:7px 0;
+    font-family:'Share Tech Mono';font-size:11px;}
+  .cbar-inner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .cg{display:flex;align-items:center;gap:6px;}
+  .cg label{color:var(--muted);white-space:nowrap;}
+  .cg input{background:rgba(0,0,0,.4);border:1px solid var(--border);color:var(--text);
+    font-family:'Share Tech Mono';font-size:11px;padding:4px 8px;outline:none;transition:border-color .2s;}
+  .cg input:focus{border-color:var(--accent);}
+  #epInput{width:210px;}#ivInput{width:52px;}
+  .btn{padding:4px 12px;font-family:'Exo 2';font-size:10px;font-weight:700;letter-spacing:1px;
+    text-transform:uppercase;cursor:pointer;border:none;outline:none;
+    clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all .2s;}
+  .btn-c{background:linear-gradient(135deg,rgba(0,212,255,.8),rgba(0,255,136,.6));color:var(--bg);}
+  .btn-c:hover{filter:brightness(1.2);box-shadow:var(--glow);}
+  .btn-h{background:rgba(255,51,102,.2);color:var(--down);border:1px solid rgba(255,51,102,.4);}
+  .btn-h:hover{background:rgba(255,51,102,.35);}
+
+  /* TICKER */
+  .ticker-wrap{overflow:hidden;height:32px;display:flex;align-items:center;
+    background:rgba(0,212,255,.03);border-bottom:1px solid var(--border);}
+  .ticker{display:flex;gap:28px;animation:ticka 35s linear infinite;white-space:nowrap;}
+  @keyframes ticka{to{transform:translateX(-50%);}}
+  .ti{display:flex;align-items:center;gap:7px;font-size:11px;font-family:'Share Tech Mono';}
+  .ts{font-weight:700;}.tp{color:var(--accent);}
+  .tc.pos{color:var(--up);}.tc.neg{color:var(--down);}
+
+  /* NAV */
+  .nav{display:flex;gap:3px;padding:13px 0 0;border-bottom:1px solid var(--border);overflow-x:auto;}
+  .tab{padding:7px 17px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:1px;
+    border:1px solid transparent;color:var(--muted);background:none;
+    clip-path:polygon(7px 0%,100% 0%,calc(100% - 7px) 100%,0% 100%);white-space:nowrap;transition:all .2s;}
+  .tab:hover{color:var(--accent);border-color:rgba(0,212,255,.3);}
+  .tab.active{color:var(--accent);background:rgba(0,212,255,.08);
+    border-color:rgba(0,212,255,.5);box-shadow:var(--glow);}
+
+  .dash{padding:18px 0;display:grid;gap:16px;}
+  .tc-panel{display:none;}.tc-panel.active{display:block;}
+
+  /* KPI */
+  .kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:13px;}
+  .kcard{background:var(--surface);border:1px solid var(--border);padding:16px;position:relative;
+    overflow:hidden;clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px));
+    transition:all .3s;}
+  .kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity .3s;}
+  .kcard:hover::before{opacity:1;}
+  .kcard:hover{border-color:rgba(0,212,255,.3);transform:translateY(-2px);box-shadow:var(--glow);}
+  .klbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+    font-family:'Share Tech Mono';margin-bottom:5px;}
+  .kval{font-size:24px;font-weight:900;letter-spacing:-1px;font-family:'Share Tech Mono';transition:all .3s;}
+  .kval.up{color:var(--up);text-shadow:0 0 16px rgba(0,255,136,.5);}
+  .kval.down{color:var(--down);text-shadow:0 0 16px rgba(255,51,102,.5);}
+  .kval.neu{color:var(--accent);text-shadow:0 0 16px rgba(0,212,255,.4);}
+  .ksub{font-size:10px;font-family:'Share Tech Mono';margin-top:4px;color:var(--muted);}
+  .kbar{position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--border);}
+  .kbar-f{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width 1s ease;}
+  .fu{animation:fu .4s ease;}@keyframes fu{0%{background:rgba(0,255,136,.15);}100%{background:transparent;}}
+  .fd{animation:fd .4s ease;}@keyframes fd{0%{background:rgba(255,51,102,.15);}100%{background:transparent;}}
+
+  /* PANELS */
+  .panel{background:var(--surface);border:1px solid var(--border);
+    clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));overflow:hidden;}
+  .ph{padding:13px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+    justify-content:space-between;background:rgba(0,212,255,.03);}
+  .pt{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+    color:var(--accent);font-family:'Share Tech Mono';}
+  .pb{padding:17px;}
+  .r2{display:grid;grid-template-columns:2fr 1fr;gap:16px;}
+  .r3{display:grid;grid-template-columns:3fr 2fr;gap:16px;}
+
+  /* CHART */
+  .chart-a{height:185px;position:relative;display:flex;align-items:center;gap:2px;}
+  .cb{flex:1;border-radius:2px 2px 0 0;transition:all .3s;cursor:pointer;min-height:3px;}
+  .cb.pos{background:linear-gradient(0deg,rgba(0,255,136,.3),rgba(0,255,136,.8));}
+  .cb.neg{background:linear-gradient(0deg,rgba(255,51,102,.8),rgba(255,51,102,.3));
+    align-self:flex-start;border-radius:0 0 2px 2px;}
+  .cb:hover{filter:brightness(1.5);}
+  .czero{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(0,212,255,.25);pointer-events:none;}
+  .clbl{display:flex;justify-content:space-between;padding-top:5px;
+    font-size:9px;font-family:'Share Tech Mono';color:var(--muted);}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;}
+  th{padding:9px 10px;font-size:9px;font-family:'Share Tech Mono';letter-spacing:2px;
+    text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+  td{padding:10px;font-size:12px;font-family:'Share Tech Mono';
+    border-bottom:1px solid rgba(13,34,51,.5);white-space:nowrap;}
+  tr:hover td{background:rgba(0,212,255,.03);}
+  .badge{padding:2px 7px;font-size:9px;font-weight:700;letter-spacing:1px;border-radius:2px;}
+  .badge.buy{background:rgba(0,255,136,.15);color:var(--up);border:1px solid rgba(0,255,136,.3);}
+  .badge.sell{background:rgba(255,51,102,.15);color:var(--down);border:1px solid rgba(255,51,102,.3);}
+  .badge.open{background:rgba(0,212,255,.1);color:var(--accent);border:1px solid rgba(0,212,255,.3);}
+  .badge.closed{background:rgba(74,122,155,.2);color:var(--muted);border:1px solid rgba(74,122,155,.3);}
+  .pp{color:var(--up);}.pn{color:var(--down);}
+
+  /* POSITIONS */
+  .pl{display:flex;flex-direction:column;gap:11px;}
+  .pi{padding:12px;background:rgba(0,212,255,.03);border:1px solid rgba(0,212,255,.1);border-radius:2px;transition:all .2s;}
+  .pi:hover{border-color:rgba(0,212,255,.3);}
+  .pr1{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+  .psym{font-weight:900;font-size:14px;letter-spacing:1px;}
+  .ppnl{font-family:'Share Tech Mono';font-size:13px;font-weight:700;}
+  .pmeta{display:flex;gap:13px;font-size:10px;font-family:'Share Tech Mono';color:var(--muted);margin-bottom:6px;}
+  .pbar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .pbf{height:100%;border-radius:2px;}
+  .pbf.up{background:linear-gradient(90deg,var(--accent2),rgba(0,255,136,.3));}
+  .pbf.down{background:linear-gradient(90deg,var(--danger),rgba(255,51,102,.3));}
+
+  /* FEED */
+  .feed{height:185px;overflow-y:auto;}
+  .feed::-webkit-scrollbar{width:3px;}
+  .feed::-webkit-scrollbar-thumb{background:var(--muted);}
+  .fi{padding:6px 0;border-bottom:1px solid rgba(13,34,51,.5);font-size:10px;
+    font-family:'Share Tech Mono';display:flex;gap:9px;animation:fadeIn .3s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:none;}}
+  .ft{color:var(--muted);min-width:50px;}.ftp{min-width:36px;}.fm{flex:1;}
+
+  /* GAUGE */
+  .gwrap{display:flex;flex-direction:column;align-items:center;padding:8px 0;}
+  .gring{width:108px;height:108px;position:relative;margin-bottom:12px;}
+  .gring svg{transform:rotate(-90deg);}
+  .gtxt{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-family:'Share Tech Mono';}
+  .gnum{font-size:26px;font-weight:900;color:var(--warn);}
+  .gsub{font-size:8px;color:var(--muted);letter-spacing:1px;}
+  .rrows{width:100%;display:flex;flex-direction:column;gap:5px;}
+  .rrow{display:flex;justify-content:space-between;font-size:10px;
+    font-family:'Share Tech Mono';padding:5px 0;border-bottom:1px solid rgba(13,34,51,.5);}
+  .rl{color:var(--muted);}
+
+  /* LOADING */
+  .overlay{position:fixed;inset:0;background:rgba(5,10,14,.88);z-index:999;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .5s;}
+  .overlay.gone{opacity:0;pointer-events:none;}
+  .spin{width:44px;height:44px;border:2px solid var(--border);border-top-color:var(--accent);
+    border-radius:50%;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .load-txt{font-family:'Share Tech Mono';font-size:11px;color:var(--muted);letter-spacing:2px;}
+
+  /* TOAST */
+  #toast{position:fixed;bottom:22px;right:22px;z-index:999;padding:11px 18px;
+    background:rgba(255,51,102,.15);border:1px solid rgba(255,51,102,.4);color:var(--down);
+    font-family:'Share Tech Mono';font-size:11px;transform:translateY(70px);transition:transform .3s;
+    clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);}
+  #toast.show{transform:translateY(0);}
+
+  .blink{animation:blink 1.5s step-end infinite;}
+  @keyframes blink{50%{opacity:0;}}
+  .empty-msg{text-align:center;color:var(--muted);font-family:'Share Tech Mono';font-size:12px;padding:28px;}
+
+  @media(max-width:1000px){.r2,.r3{grid-template-columns:1fr;}}
+  @media(max-width:600px){.kgrid{grid-template-columns:1fr 1fr;}.hbar{display:none;}}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="ov">
+  <div class="spin"></div>
+  <div class="load-txt">連線後端 API<span class="blink">_</span></div>
+</div>
+<div id="toast"></div>
+
+<header>
+  <div class="wrap">
+    <div class="h-inner">
+      <div class="logo">
+        <div class="logo-hex">
+          <svg width="17" height="17" viewBox="0 0 20 20">
+            <polygon points="10,2 18,6 18,14 10,18 2,14 2,6" fill="none" stroke="#00d4ff" stroke-width="1.5"/>
+            <circle cx="10" cy="10" r="3" fill="#00ff88"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">CRYPTOBOT PRO</div>
+          <div class="logo-sub">PIONEX 即時儀表板</div>
+        </div>
+      </div>
+      <div class="hbar">
+        <div class="hi">
+          <div class="dot load" id="apiDot"></div>
+          <span id="apiStatus" class="s-load">連線中</span>
+        </div>
+        <div class="hi"><span class="lbl">延遲</span><span id="latency">—</span></div>
+        <div class="hi"><span class="lbl">更新</span><span id="lastUp">—</span></div>
+        <div class="hi"><span class="lbl">模式</span><span id="tradeMode" style="color:var(--warn)">—</span></div>
+        <div class="hi"><span id="clk">—</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- CONFIG BAR -->
+<div class="cbar">
+  <div class="wrap">
+    <div class="cbar-inner">
+      <div class="cg"><label>API 端點</label><input id="epInput" type="text" value="http://localhost:3000"/></div>
+      <div class="cg"><label>更新(秒)</label><input id="ivInput" type="number" value="3" min="1" max="60"/></div>
+      <button class="btn btn-c" onclick="connect()">🔌 連線</button>
+      <button class="btn btn-h" onclick="haltBot()">⚠ 緊急停止</button>
+      <span id="haltLbl" style="color:var(--down);font-size:10px;display:none;font-family:'Share Tech Mono'">● 機器人已停止</span>
+    </div>
+  </div>
+</div>
+
+<!-- TICKER -->
+<div class="wrap">
+  <div class="ticker-wrap">
+    <div class="ticker">
+      <div class="ti"><span class="ts">BTC/USDT</span><span class="tp" id="tk-btc">—</span><span class="tc pos" id="tkc-btc">—</span></div>
+      <div class="ti"><span class="ts">ETH/USDT</span><span class="tp" id="tk-eth">—</span><span class="tc pos" id="tkc-eth">—</span></div>
+      <div class="ti"><span class="ts">SOL/USDT</span><span class="tp" id="tk-sol">—</span><span class="tc neg" id="tkc-sol">—</span></div>
+      <div class="ti"><span class="ts">BTC/USDT</span><span class="tp" id="tk-btc2">—</span></div>
+      <div class="ti"><span class="ts">ETH/USDT</span><span class="tp" id="tk-eth2">—</span></div>
+      <div class="ti"><span class="ts">SOL/USDT</span><span class="tp" id="tk-sol2">—</span></div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav">
+    <button class="tab active" onclick="swTab('dash',this)">📊 總覽</button>
+    <button class="tab" onclick="swTab('pos',this)">📈 持倉</button>
+    <button class="tab" onclick="swTab('hist',this)">📋 歷史</button>
+    <button class="tab" onclick="swTab('risk',this)">🛡️ 風控</button>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div id="tab-dash" class="tc-panel active">
+    <div class="dash">
+      <div class="kgrid">
+        <div class="kcard"><div class="klbl">總資產 (USDT)</div><div class="kval neu" id="K-bal">—</div><div class="ksub" id="Ks-bal">—</div><div class="kbar"><div class="kbar-f" id="Kb-bal" style="width:0%"></div></div></div>
+        <div class="kcard"><div class="klbl">累計損益</div><div class="kval" id="K-pnl">—</div><div class="ksub" id="Ks-pnl">—</div><div class="kbar"><div class="kbar-f" id="Kb-pnl" style="width:0%"></div></div></div>
+        <div class="kcard"><div class="klbl">今日損益</div><div class="kval" id="K-day">—</div><div class="ksub" id="Ks-day">—</div><div class="kbar"><div class="kbar-f" id="Kb-day" style="width:0%"></div></div></div>
+        <div class="kcard"><div class="klbl">勝率</div><div class="kval neu" id="K-wr">—</div><div class="ksub" id="Ks-wr">—</div><div class="kbar"><div class="kbar-f" id="Kb-wr" style="width:0%"></div></div></div>
+        <div class="kcard"><div class="klbl">當前持倉</div><div class="kval neu" id="K-pos">—</div><div class="ksub" id="Ks-pos">—</div><div class="kbar"><div class="kbar-f" id="Kb-pos" style="width:0%"></div></div></div>
+        <div class="kcard"><div class="klbl">執行訂單</div><div class="kval neu" id="K-ord">—</div><div class="ksub">本月累計</div><div class="kbar"><div class="kbar-f" id="Kb-ord" style="width:0%"></div></div></div>
+      </div>
+
+      <div class="r2">
+        <div class="panel">
+          <div class="ph">
+            <span class="pt">📈 每日損益 PNL (30天)</span>
+            <span id="chartSum" style="font-size:11px;font-family:'Share Tech Mono';color:var(--muted)">—</span>
+          </div>
+          <div class="pb">
+            <div class="chart-a" id="pnlChart"><div class="czero"></div></div>
+            <div class="clbl" id="chartLbl"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="pt">🛡️ 風險概覽</span></div>
+          <div class="pb">
+            <div class="gwrap">
+              <div class="gring">
+                <svg width="108" height="108" viewBox="0 0 108 108">
+                  <circle cx="54" cy="54" r="46" fill="none" stroke="rgba(13,34,51,.8)" stroke-width="9"/>
+                  <circle cx="54" cy="54" r="46" fill="none" stroke="url(#gg)" stroke-width="9"
+                    stroke-dasharray="289" id="gfill" stroke-dashoffset="289" stroke-linecap="round"/>
+                  <defs><linearGradient id="gg" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#ff6b35"/>
+                  </linearGradient></defs>
+                </svg>
+                <div class="gtxt"><div class="gnum" id="gNum">—</div><div class="gsub">風險分</div></div>
+              </div>
+              <div class="rrows">
+                <div class="rrow"><span class="rl">今日損益</span><span id="r-day">—</span></div>
+                <div class="rrow"><span class="rl">開倉數</span><span id="r-pos">—</span></div>
+                <div class="rrow"><span class="rl">熔斷</span><span id="r-halt">—</span></div>
+                <div class="rrow"><span class="rl">機器人</span><span id="r-bot">—</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="r3">
+        <div class="panel">
+          <div class="ph"><span class="pt">🔄 近期交易</span><span id="tcount" style="font-size:10px;color:var(--muted);font-family:'Share Tech Mono'">0 筆</span></div>
+          <div class="pb" style="padding:0">
+            <table><thead><tr><th>時間</th><th>交易對</th><th>方向</th><th>入場</th><th>出場</th><th>qty</th><th>損益</th><th>狀態</th></tr></thead>
+            <tbody id="tbl-trades"><tr><td colspan="8" class="empty-msg">等待連線...</td></tr></tbody></table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="pt">📡 系統日誌</span><span style="font-size:9px;color:var(--accent2);font-family:'Share Tech Mono'">● LIVE<span class="blink">_</span></span></div>
+          <div class="pb"><div class="feed" id="logFeed"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POSITIONS TAB -->
+  <div id="tab-pos" class="tc-panel">
+    <div class="dash">
+      <div class="panel">
+        <div class="ph"><span class="pt">📊 當前持倉</span><span id="posCount" style="font-size:10px;color:var(--muted);font-family:'Share Tech Mono'">0 個部位</span></div>
+        <div class="pb"><div class="pl" id="posList"><div class="empty-msg">等待連線...</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="tab-hist" class="tc-panel">
+    <div class="dash">
+      <div class="panel">
+        <div class="ph">
+          <span class="pt">📋 完整交易歷史</span>
+          <div style="display:flex;gap:12px;font-family:'Share Tech Mono';font-size:10px">
+            <span style="color:var(--up)" id="hw">勝: 0</span>
+            <span style="color:var(--down)" id="hl">敗: 0</span>
+            <span style="color:var(--accent)" id="hwr">勝率: 0%</span>
+          </div>
+        </div>
+        <div class="pb" style="padding:0">
+          <table><thead><tr><th>時間</th><th>交易對</th><th>方向</th><th>入場</th><th>出場</th><th>qty</th><th>損益</th><th>原因</th></tr></thead>
+          <tbody id="tbl-hist"><tr><td colspan="8" class="empty-msg">等待連線...</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RISK TAB -->
+  <div id="tab-risk" class="tc-panel">
+    <div class="dash">
+      <div class="r2">
+        <div class="panel">
+          <div class="ph"><span class="pt">🛡️ 即時風控狀態</span></div>
+          <div class="pb" style="display:flex;flex-direction:column;gap:11px">
+            <div style="padding:13px;background:rgba(0,212,255,.03);border:1px solid rgba(0,212,255,.1)">
+              <div style="font-size:9px;font-family:'Share Tech Mono';color:var(--muted);letter-spacing:2px;margin-bottom:5px">機器人運行狀態</div>
+              <div style="font-size:20px;font-weight:900;font-family:'Share Tech Mono'" id="rk-bot">—</div>
+            </div>
+            <div style="padding:13px;background:rgba(0,212,255,.03);border:1px solid rgba(0,212,255,.1)">
+              <div style="font-size:9px;font-family:'Share Tech Mono';color:var(--muted);letter-spacing:2px;margin-bottom:5px">熔斷原因</div>
+              <div style="font-size:12px;font-family:'Share Tech Mono';color:var(--warn)" id="rk-halt">—</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+              <div style="padding:11px;background:rgba(0,0,0,.3);border:1px solid var(--border)">
+                <div style="font-size:9px;font-family:'Share Tech Mono';color:var(--muted);margin-bottom:4px">今日損益</div>
+                <div style="font-size:16px;font-family:'Share Tech Mono';font-weight:700" id="rk-day">—</div>
+              </div>
+              <div style="padding:11px;background:rgba(0,0,0,.3);border:1px solid var(--border)">
+                <div style="font-size:9px;font-family:'Share Tech Mono';color:var(--muted);margin-bottom:4px">開倉數</div>
+                <div style="font-size:16px;font-family:'Share Tech Mono';font-weight:700;color:var(--accent)" id="rk-pos">—</div>
+              </div>
+              <div style="padding:11px;background:rgba(0,0,0,.3);border:1px solid var(--border)">
+                <div style="font-size:9px;font-family:'Share Tech Mono';color:var(--muted);margin-bottom:4px">總勝率</div>
+                <div style="font-size:16px;font-family:'Share Tech Mono';font-weight:700;color:var(--up)" id="rk-wr">—</div>
+              </div>
+              <div style="padding:11px;background:rgba(0,0,0,.3);border:1px solid var(--border)">
+                <div style="font-size:9px;font-family:'Share Tech Mono';color:var(--muted);margin-bottom:4px">總交易數</div>
+                <div style="font-size:16px;font-family:'Share Tech Mono';font-weight:700" id="rk-total">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="pt">⏱ 系統健康</span></div>
+          <div class="pb" style="display:flex;flex-direction:column;gap:9px;font-family:'Share Tech Mono';font-size:11px">
+            <div style="padding:10px;border:1px solid var(--border)"><div style="color:var(--muted);font-size:9px;letter-spacing:2px;margin-bottom:4px">API 連線</div><div id="h-api" style="color:var(--up)">—</div></div>
+            <div style="padding:10px;border:1px solid var(--border)"><div style="color:var(--muted);font-size:9px;letter-spacing:2px;margin-bottom:4px">運行時間</div><div id="h-up" style="color:var(--accent)">—</div></div>
+            <div style="padding:10px;border:1px solid var(--border)"><div style="color:var(--muted);font-size:9px;letter-spacing:2px;margin-bottom:4px">最後更新</div><div id="h-lu">—</div></div>
+            <div style="padding:10px;border:1px solid var(--border)"><div style="color:var(--muted);font-size:9px;letter-spacing:2px;margin-bottom:4px">輪詢間隔</div><div id="h-iv" style="color:var(--muted)">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+'use strict';
+const ST = { base:'http://localhost:3000', iv:3, timer:null, prevBal:null, connected:false };
+
+// Clock
+setInterval(()=>{ document.getElementById('clk').textContent = new Date().toTimeString().slice(0,8); },1000);
+
+// ── API ──────────────────────────────────────────────
+async function apiFetch(path) {
+  const r = await fetch(ST.base + path, { signal: AbortSignal.timeout(5000) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function fetchAll() {
+  const t0 = performance.now();
+  try {
+    const [stats, health] = await Promise.all([
+      apiFetch('/api/stats'),
+      apiFetch('/api/health'),
+    ]);
+    const ms = Math.round(performance.now() - t0);
+    eid('latency').textContent = ms + 'ms';
+    eid('lastUp').textContent  = new Date().toTimeString().slice(0,8);
+    eid('h-api').textContent   = `✓ 正常 (${ms}ms)`;
+    eid('h-lu').textContent    = new Date().toLocaleTimeString('zh-TW');
+    if (health?.uptime) eid('h-up').textContent = fmtUp(health.uptime);
+    setStatus('ok','LIVE');
+
+    renderKPIs(stats);
+    renderChart(stats.dailyPnl ?? []);
+    renderTrades(stats.recentTrades ?? []);
+    renderPositions(stats.openPositions ?? []);
+    renderHist(stats.recentTrades ?? [], stats);
+    renderRisk(stats, health);
+    if (!ST.connected) {
+      ST.connected = true;
+      document.getElementById('ov').classList.add('gone');
+      log('SYS','已連線 ' + ST.base,'var(--accent2)');
+    }
+    return true;
+  } catch(e) {
+    setStatus('err','離線');
+    if (ST.connected) log('ERR','連線中斷: ' + e.message,'var(--down)');
+    return false;
+  }
+}
+
+async function connect() {
+  ST.base = eid('epInput').value.trim().replace(/\/$/,'');
+  ST.iv   = parseInt(eid('ivInput').value)||3;
+  clearInterval(ST.timer);
+  ST.connected = false;
+  setStatus('load','連線中');
+  log('SYS','嘗試連線 ' + ST.base,'var(--accent)');
+  const ok = await fetchAll();
+  if (!ok) {
+    document.getElementById('ov').classList.add('gone');
+    toast('無法連線，請確認 bot.js 已啟動 (npm start)');
+  }
+  ST.timer = setInterval(fetchAll, ST.iv * 1000);
+  eid('h-iv').textContent = ST.iv + 's';
+}
+
+// ── RENDER KPIs ──────────────────────────────────────
+function renderKPIs(d) {
+  const bal   = d.balance  ?? 0;
+  const tPnl  = d.totalPnl ?? 0;
+  const wins  = d.wins     ?? 0;
+  const losses= d.losses   ?? 0;
+  const wr    = d.winRate  ?? 0;
+  const opPos = d.openPositions?.length ?? 0;
+  const total = d.totalTrades ?? 0;
+  const arr   = Array.isArray(d.dailyPnl) ? d.dailyPnl : [];
+  const today = arr.at(-1)?.pnl ?? 0;
+
+  // Balance
+  const bEl = eid('K-bal');
+  if (ST.prevBal !== null && bal !== ST.prevBal) {
+    bEl.classList.add(bal > ST.prevBal ? 'fu' : 'fd');
+    setTimeout(()=> bEl.classList.remove('fu','fd'), 400);
+  }
+  bEl.textContent = nf(bal);
+  bEl.className   = 'kval neu';
+  eid('Ks-bal').textContent = ST.prevBal ? `${bal>ST.prevBal?'▲':'▼'} 較上次` : '最新數據';
+  setBar('Kb-bal', 70, false);
+
+  // Total PnL
+  const pnlPct = bal > 0 ? (tPnl / Math.max(bal - tPnl, 1) * 100) : 0;
+  setKval('K-pnl', (tPnl>=0?'+':'')+nf(tPnl), tPnl>=0);
+  eid('Ks-pnl').textContent = `${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}% 總回報`;
+  setBar('Kb-pnl', Math.min(Math.abs(pnlPct)*5, 100), tPnl < 0);
+
+  // Today
+  setKval('K-day', (today>=0?'+':'')+nf(today), today>=0);
+  eid('Ks-day').textContent = '今日 ' + new Date().toLocaleDateString('zh-TW');
+  setBar('Kb-day', Math.min(Math.abs(today)/10, 100), today < 0);
+
+  // WR
+  eid('K-wr').textContent = wr.toFixed(1) + '%';
+  eid('Ks-wr').textContent = `${wins}勝 / ${losses}敗`;
+  setBar('Kb-wr', wr, false);
+
+  // Positions
+  eid('K-pos').textContent = String(opPos);
+  const syms = (d.openPositions??[]).map(p=>(p.symbol??'').replace('_USDT','')).join(' · ');
+  eid('Ks-pos').textContent = syms || '無持倉';
+  setBar('Kb-pos', (opPos/5)*100, false);
+
+  // Orders
+  eid('K-ord').textContent = String(total);
+  setBar('Kb-ord', Math.min(total/300*100,100), false);
+  eid('tcount').textContent = (d.recentTrades?.length??0) + ' 筆';
+  ST.prevBal = bal;
+}
+
+// ── CHART ────────────────────────────────────────────
+function renderChart(arr) {
+  const chart = eid('pnlChart');
+  const lbl   = eid('chartLbl');
+  Array.from(chart.children).forEach(c=>{ if(!c.classList.contains('czero')) c.remove(); });
+  lbl.innerHTML = '';
+  if (!arr.length) return;
+  const vals   = arr.map(d=>d.pnl??0);
+  const maxAbs = Math.max(...vals.map(Math.abs),1);
+  const sum    = vals.reduce((a,b)=>a+b,0);
+  vals.forEach((v,i)=>{
+    const bar = document.createElement('div');
+    bar.className = 'cb '+(v>=0?'pos':'neg');
+    bar.style.height = Math.max(Math.abs(v)/maxAbs*88,3)+'px';
+    bar.title = `${arr[i].date}: ${v>=0?'+':''}${v.toFixed(2)} USDT`;
+    chart.appendChild(bar);
+  });
+  [0,6,13,20,27,arr.length-1].forEach(i=>{
+    if(i<arr.length){ const s=document.createElement('span'); s.textContent=arr[i].date?.slice(5)??String(i+1); lbl.appendChild(s); }
+  });
+  const sumEl = eid('chartSum');
+  sumEl.textContent = `累計 ${sum>=0?'+':''}${nf(sum)} USDT`;
+  sumEl.style.color = sum>=0?'var(--up)':'var(--down)';
+}
+
+// ── TRADES ───────────────────────────────────────────
+function renderTrades(trades) {
+  const tbody = eid('tbl-trades');
+  if (!trades.length) { tbody.innerHTML='<tr><td colspan="8" class="empty-msg">尚無交易記錄</td></tr>'; return; }
+  tbody.innerHTML = trades.slice(0,10).map(t=>{
+    const pnl = t.pnl??0;
+    const open = !t.exitPrice || t.exitPrice==='-';
+    return `<tr>
+      <td style="color:var(--muted)">${fmtT(t.closeTime??t.openTime)}</td>
+      <td style="font-weight:700">${(t.symbol??'').replace('_','/')}</td>
+      <td><span class="badge ${(t.side??'').toLowerCase()}">${t.side??'—'}</span></td>
+      <td>${nf(t.entryPrice)}</td>
+      <td>${open?'<span style="color:var(--accent)">持倉中</span>':nf(t.exitPrice)}</td>
+      <td>${t.qty??'—'}</td>
+      <td class="${pnl>=0?'pp':'pn'}">${pnl>=0?'+':''}${nf(pnl)}</td>
+      <td><span class="badge ${open?'open':'closed'}">${open?'持倉中':t.reason??'平倉'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── POSITIONS ────────────────────────────────────────
+function renderPositions(positions) {
+  eid('posCount').textContent = positions.length + ' 個部位';
+  const list = eid('posList');
+  if (!positions.length) { list.innerHTML='<div class="empty-msg">目前無持倉</div>'; return; }
+  list.innerHTML = positions.map(p=>{
+    const cur = p.currentPrice ?? p.entryPrice;
+    const pnl = (p.qty??0)*(cur - p.entryPrice)*(p.side==='BUY'?1:-1);
+    const pct = p.entryPrice ? (pnl/(p.entryPrice*(p.qty??1))*100):0;
+    const up  = pnl >= 0;
+    return `<div class="pi">
+      <div class="pr1">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="psym">${(p.symbol??'').replace('_','/')}</div>
+          <span class="badge ${(p.side??'').toLowerCase()}">${p.side??''}</span>
+        </div>
+        <div class="ppnl" style="color:var(--${up?'up':'down'})">${up?'+':''}${nf(pnl)} <span style="font-size:10px">(${up?'+':''}${pct.toFixed(2)}%)</span></div>
+      </div>
+      <div class="pmeta">
+        <span>入場 ${nf(p.entryPrice)}</span>
+        <span>止損 ${nf(p.stopLoss)}</span>
+        <span>止盈 ${nf(p.takeProfit)}</span>
+        <span>qty ${p.qty}</span>
+      </div>
+      <div class="pbar"><div class="pbf ${up?'up':'down'}" style="width:${Math.min(Math.abs(pct)*10,100)}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── HISTORY ──────────────────────────────────────────
+function renderHist(trades, d) {
+  const wins   = trades.filter(t=>(t.pnl??0)>0).length;
+  const losses  = trades.filter(t=>(t.pnl??0)<=0).length;
+  eid('hw').textContent  = '勝: ' + wins;
+  eid('hl').textContent  = '敗: ' + losses;
+  eid('hwr').textContent = '勝率: ' + (trades.length?(wins/trades.length*100).toFixed(1):0) + '%';
+  const tbody = eid('tbl-hist');
+  if (!trades.length) { tbody.innerHTML='<tr><td colspan="8" class="empty-msg">尚無記錄</td></tr>'; return; }
+  tbody.innerHTML = trades.map(t=>{
+    const pnl = t.pnl??0;
+    return `<tr>
+      <td style="color:var(--muted)">${fmtT(t.closeTime??t.openTime)}</td>
+      <td style="font-weight:700">${(t.symbol??'').replace('_','/')}</td>
+      <td><span class="badge ${(t.side??'').toLowerCase()}">${t.side??'—'}</span></td>
+      <td>${nf(t.entryPrice)}</td>
+      <td>${t.exitPrice&&t.exitPrice!=='-'?nf(t.exitPrice):'—'}</td>
+      <td>${t.qty??'—'}</td>
+      <td class="${pnl>=0?'pp':'pn'}">${pnl>=0?'+':''}${nf(pnl)}</td>
+      <td style="color:var(--muted)">${t.reason??'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RISK ─────────────────────────────────────────────
+function renderRisk(d, h) {
+  const arr    = Array.isArray(d.dailyPnl)?d.dailyPnl:[];
+  const today  = arr.at(-1)?.pnl??0;
+  const halted = d.halted??false;
+  const risk   = Math.min(Math.abs(today/Math.max((d.balance??1)*0.05,1)*100), 100);
+  const botOk  = h?.status==='ok';
+
+  eid('gNum').textContent = Math.round(risk);
+  eid('gfill').style.strokeDashoffset = 289*(1-risk/100);
+
+  setEc('r-day',  (today>=0?'+':'')+nf(today)+' USDT', today>=0?'var(--up)':'var(--down)');
+  eid('r-pos').textContent  = `${d.openPositions?.length??0}/5 部位`;
+  setEc('r-halt', halted?'🔴 已熔斷':'🟢 正常', halted?'var(--down)':'var(--up)');
+  setEc('r-bot',  botOk?'● 運行中':'● 離線', botOk?'var(--up)':'var(--down)');
+
+  setEc('rk-bot',  botOk?'● 運行中':'● 離線', botOk?'var(--up)':'var(--down)');
+  eid('rk-halt').textContent  = d.haltReason||'無';
+  setEc('rk-day',  (today>=0?'+':'')+nf(today), today>=0?'var(--up)':'var(--down)');
+  eid('rk-pos').textContent   = String(d.openPositions?.length??0);
+  eid('rk-wr').textContent    = (d.winRate??0).toFixed(1)+'%';
+  eid('rk-total').textContent = String(d.totalTrades??0);
+
+  eid('tradeMode').textContent = h?.dryRun===false?'🔴 實盤':'📋 模擬';
+  if (h?.uptime) eid('h-up').textContent = fmtUp(h.uptime);
+}
+
+// ── UTILS ────────────────────────────────────────────
+function eid(id) { return document.getElementById(id); }
+function nf(n,d=2) { const x=parseFloat(n); return isNaN(x)?'—':x.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function fmtT(ts) { return ts?new Date(ts).toLocaleTimeString('zh-TW',{hour12:false}):'—'; }
+function fmtUp(s) { if(!s) return '—'; const h=Math.floor(s/3600),m=Math.floor(s%3600/60),sc=Math.floor(s%60); return `${h}h ${m}m ${sc}s`; }
+function setStatus(st,label) {
+  eid('apiDot').className = `dot ${st==='ok'?'ok':st==='err'?'err':'load'}`;
+  const b=eid('apiStatus'); b.textContent=label; b.className=`s-${st}`;
+}
+function setKval(id,v,up) { const el=eid(id); if(!el) return; el.textContent=v; el.className='kval '+(up?'up':'down'); }
+function setBar(id,pct,danger) {
+  const el=eid(id); if(!el) return;
+  el.style.width=Math.min(Math.max(pct,0),100)+'%';
+  el.style.background=danger?'linear-gradient(90deg,var(--danger),rgba(255,51,102,.3))':
+    'linear-gradient(90deg,var(--accent2),var(--accent))';
+}
+function setEc(id,v,c) { const el=eid(id); if(!el) return; el.textContent=v; if(c) el.style.color=c; }
+function log(type,msg,color='var(--text)') {
+  const feed=eid('logFeed'), now=new Date().toTimeString().slice(0,8);
+  const item=document.createElement('div'); item.className='fi';
+  item.innerHTML=`<span class="ft">${now}</span><span class="ftp" style="color:${color}">${type}</span><span class="fm">${msg}</span>`;
+  feed.insertBefore(item,feed.firstChild);
+  if(feed.children.length>40) feed.lastChild?.remove();
+}
+function toast(msg) {
+  const t=eid('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),4000);
+}
+async function haltBot() {
+  if(!confirm('確定要緊急停止機器人？')) return;
+  try {
+    await fetch(ST.base+'/api/halt',{method:'POST'});
+    eid('haltLbl').style.display='inline';
+    log('HALT','緊急停止指令已送出','var(--down)');
+  } catch(e) { toast('無法連線後端，請手動停止 bot.js'); }
+}
+function swTab(name,btn) {
+  document.querySelectorAll('.tc-panel').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  eid('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Auto-connect
+window.addEventListener('load',()=>{
+  log('SYS','儀表板初始化','var(--accent)');
+  const p=new URLSearchParams(location.search);
+  if(p.get('api')) eid('epInput').value=p.get('api');
+  if(p.get('iv'))  eid('ivInput').value=p.get('iv');
+  setTimeout(connect, 500);
+});
+</script>
+</body>
+</html>

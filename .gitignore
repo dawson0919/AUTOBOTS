@@ -1,0 +1,48 @@
+# Secrets
+.env
+*.env.local
+.pionex/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# State (personal data)
+pionex-bot/state/
+!pionex-bot/state/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Node
+node_modules/
+cryptobot/
+
+# Backups
+pionex-bot/toml_backups/
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Large model files
+*.safetensors
+*.ckpt
+*.gguf
+*.xgb
+
+# Temp
+*.tmp
+*.swp
+nul
+*.csv
+output/autobots-trading/*.pptx
+pionex-bot/output/*.json
+pionex-bot/dashboard-tutorial.pptx
+nba_data.json

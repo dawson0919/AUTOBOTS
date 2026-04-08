@@ -1,0 +1,112 @@
+{
+  "symbol": "WTI_USDT_PERP",
+  "interval": "60M",
+  "ma": [
+    7,
+    25,
+    99
+  ],
+  "leverage": 5,
+  "investment": 50.0,
+  "days": 20.0,
+  "candles": 481,
+  "total_trades": 9,
+  "win_rate": 33.3,
+  "total_pnl": -33.21,
+  "total_return_pct": -6.6,
+  "max_drawdown_pct": 11.8,
+  "profit_factor": 0.44,
+  "avg_hold_hours": 42.0,
+  "trades": [
+    {
+      "direction": "long",
+      "entry_time": "03/14 03:00",
+      "entry_price": 96.2962,
+      "exit_price": 96.96294,
+      "pnl": 1.48,
+      "pnl_pct": 3.5,
+      "strength": 3,
+      "hold_bars": 58
+    },
+    {
+      "direction": "short",
+      "entry_time": "03/16 13:00",
+      "entry_price": 96.96294,
+      "exit_price": 96.35625999999999,
+      "pnl": 1.31,
+      "pnl_pct": 3.1,
+      "strength": 2,
+      "hold_bars": 61
+    },
+    {
+      "direction": "long",
+      "entry_time": "03/19 02:00",
+      "entry_price": 96.35625999999999,
+      "exit_price": 94.37553,
+      "pnl": -5.39,
+      "pnl_pct": -10.3,
+      "strength": 2,
+      "hold_bars": 26
+    },
+    {
+      "direction": "short",
+      "entry_time": "03/20 04:00",
+      "entry_price": 94.37553,
+      "exit_price": 96.84674999999999,
+      "pnl": -6.8,
+      "pnl_pct": -13.1,
+      "strength": 2,
+      "hold_bars": 18
+    },
+    {
+      "direction": "long",
+      "entry_time": "03/20 22:00",
+      "entry_price": 96.84674999999999,
+      "exit_price": 95.60430000000001,
+      "pnl": -3.46,
+      "pnl_pct": -6.4,
+      "strength": 2,
+      "hold_bars": 30
+    },
+    {
+      "direction": "short",
+      "entry_time": "03/22 04:00",
+      "entry_price": 95.60430000000001,
+      "exit_price": 98.31821999999998,
+      "pnl": -7.35,
+      "pnl_pct": -14.2,
+      "strength": 2,
+      "hold_bars": 5
+    },
+    {
+      "direction": "long",
+      "entry_time": "03/22 09:00",
+      "entry_price": 98.31821999999998,
+      "exit_price": 88.99092,
+      "pnl": -23.97,
+      "pnl_pct": -47.4,
+      "strength": 3,
+      "hold_bars": 36
+    },
+    {
+      "direction": "short",
+      "entry_time": "03/23 21:00",
+      "entry_price": 88.99092,
+      "exit_price": 93.30320999999998,
+      "pnl": -12.36,
+      "pnl_pct": -24.2,
+      "strength": 2,
+      "hold_bars": 69
+    },
+    {
+      "direction": "long",
+      "entry_time": "03/26 18:00",
+      "entry_price": 93.30320999999998,
+      "exit_price": 102.1,
+      "pnl": 23.32,
+      "pnl_pct": 47.1,
+      "strength": 2,
+      "hold_bars": 75
+    }
+  ]
+}

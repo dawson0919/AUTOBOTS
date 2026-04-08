@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Ξ ETH 預測指數 — Polymarket Signal</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#020617;--card:#0f172a;--card2:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--dim:#64748b;--bull:#22c55e;--bear:#ef4444;--neutral:#f59e0b;--accent:#627eea;--accent2:#8c8dfc;--mono:'JetBrains Mono',monospace;--sans:'Noto Sans TC',sans-serif}
+body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 100%);color:var(--text);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* Header */
+.header{background:linear-gradient(135deg,var(--card) 0%,#1a1f3c 50%,var(--card) 100%);border-bottom:1px solid var(--border);padding:16px 20px;position:sticky;top:0;z-index:100}
+.header-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.header h1{font-size:17px;font-weight:900;font-family:var(--mono);background:linear-gradient(135deg,var(--accent),var(--accent2),#a5b4fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+.header .sub{font-size:11px;color:var(--dim);margin-top:2px}
+.btn{font-family:var(--mono);font-size:11px;border-radius:6px;padding:6px 12px;cursor:pointer;border:1px solid;transition:all 0.2s;background:none}
+.btn-refresh{background:rgba(98,126,234,0.1);border-color:var(--accent);color:#a5b4fc}
+.btn-refresh:hover{background:rgba(98,126,234,0.2)}
+.btn-auto{border-color:var(--bull);color:var(--bull);background:rgba(34,197,94,0.1)}
+.btn-auto.off{border-color:var(--dim);color:var(--dim);background:rgba(100,116,139,0.1)}
+.meta{font-size:10px;color:#475569;margin-top:4px}
+
+/* Nav */
+.nav{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.nav a{font-family:var(--mono);font-size:10px;color:var(--muted);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s;letter-spacing:0.5px}
+.nav a:hover{border-color:var(--accent);color:#a5b4fc}
+.nav a.active{border-color:var(--accent);color:var(--accent);background:rgba(98,126,234,0.1)}
+
+/* Container */
+.container{max-width:800px;margin:0 auto;padding:16px}
+
+/* Gauge */
+.gauge-card{background:linear-gradient(135deg,var(--card) 0%,var(--card2) 100%);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;text-align:center}
+.signal-label{font-size:26px;font-weight:800;font-family:var(--mono);letter-spacing:2px;margin-top:-8px}
+.signal-meta{font-size:13px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+.action-box{padding:12px 20px;border-radius:8px;margin-top:14px;text-align:center}
+.action-text{font-size:16px;font-weight:700}
+.action-sub{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:12px;text-align:center}
+.stat-label{font-size:10px;color:var(--dim);font-family:var(--mono);letter-spacing:1px}
+.stat-value{font-size:22px;font-weight:800;font-family:var(--mono);margin-top:4px}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* History chart */
+.history-card{background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:16px;margin-bottom:16px}
+.history-chart{height:80px;display:flex;align-items:center;gap:1px}
+.history-bar{flex:1;border-radius:2px;min-width:2px;transition:height 0.3s}
+
+/* Distribution */
+.dist-card{background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:16px;margin-bottom:16px}
+.dist-title{color:var(--text);font-size:13px;font-weight:700;font-family:var(--mono);letter-spacing:1px;margin-bottom:12px}
+.dist-bars{display:flex;align-items:flex-end;gap:4px;height:110px}
+.dist-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.dist-pct{font-size:9px;font-family:var(--mono);margin-bottom:3px}
+.dist-bar{width:100%;border-radius:4px 4px 0 0;min-height:4px;transition:height 0.5s}
+.dist-range{font-size:8px;color:var(--dim);font-family:var(--mono);margin-top:3px;text-align:center;line-height:1.2}
+
+/* Strategy */
+.strategy-item{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--card);border:1px solid var(--card2);border-radius:8px;margin-bottom:8px}
+.strat-name{font-size:14px;font-weight:600;font-family:var(--mono);color:var(--text)}
+.strat-desc{font-size:11px;color:var(--muted);margin-top:2px}
+.strat-risk{font-size:11px;font-weight:700;font-family:var(--mono);padding:2px 8px;border-radius:4px}
+
+/* Filters */
+.filters{display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px}
+.filter-btn{font-family:var(--mono);font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer;white-space:nowrap;border:1px solid var(--border);background:var(--card2);color:var(--muted);transition:all 0.2s}
+.filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Market cards */
+.market-card{background:linear-gradient(135deg,var(--card) 0%,var(--card2) 100%);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;transition:border-color 0.2s}
+.market-card:hover{border-color:var(--accent)}
+.market-row{display:flex;justify-content:space-between;align-items:flex-start}
+.market-tags{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.tag{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#fff}
+.tag-updown{background:var(--accent)}.tag-range{background:var(--accent2)}.tag-above_below{background:#06b6d4}
+.tag-tf{background:transparent;border:1px solid #475569;color:var(--muted)}
+.market-q{font-size:13px;color:var(--text);line-height:1.4;font-family:var(--mono)}
+.market-price{font-size:22px;font-weight:800;font-family:var(--mono)}
+.market-vol{font-size:11px;color:var(--dim);margin-top:2px}
+.prob-bar{margin-top:8px;height:4px;background:var(--card2);border-radius:2px;overflow:hidden}
+.prob-fill{height:100%;border-radius:2px;transition:width 0.5s}
+
+/* Method */
+.method{background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:16px;margin-top:20px;margin-bottom:30px}
+.method h3{color:var(--muted);font-size:13px;font-weight:700;font-family:var(--mono);margin-bottom:10px}
+.method p{font-size:12px;color:var(--dim);line-height:1.8;margin-bottom:6px}
+.method strong{color:#a5b4fc}.method .warn{color:var(--bear)}
+
+/* Loading */
+.loading{text-align:center;padding:60px 20px;color:var(--dim);font-size:14px}
+
+/* Responsive */
+@media(max-width:480px){
+  .header h1{font-size:15px}
+  .stat-value{font-size:18px}
+  .signal-label{font-size:22px}
+  .market-price{font-size:18px}
+  .stats{grid-template-columns:repeat(3,1fr);gap:6px}
+}
+</style>
+</head>
+<body>
+<nav id="global-nav" style="display:flex;gap:0;background:#0f172a;border-bottom:1px solid #334155;position:sticky;top:0;z-index:200;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<a href="/" class="nav-tab" data-page="trading" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">Trading</a>
+<a href="/polymarket" class="nav-tab" data-page="polymarket" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">Polymarket</a>
+<a href="/nba" class="nav-tab" data-page="nba" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">NBA</a>
+<a href="/btc" class="nav-tab" data-page="btc" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">BTC</a>
+<a href="/eth" class="nav-tab" data-page="eth" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">ETH</a>
+</nav>
+<script>document.querySelectorAll('.nav-tab').forEach(function(t){var p=location.pathname;var d=t.dataset.page;var active=(p==='/'&&d==='trading')||(p==='/'+d);if(active){t.style.borderBottomColor='#6366f1';t.style.color='#e2e8f0';t.style.background='rgba(99,102,241,0.1)'}});</script>
+<div class="header">
+<div class="header-top">
+<div>
+  <h1>Ξ POLYMARKET × ETH</h1>
+  <div class="sub">基於 Polymarket 下注機率即時運算交易信號</div>
+</div>
+<div style="display:flex;gap:6px">
+  <button class="btn btn-auto" id="autoBtn" onclick="toggleAuto()">● 自動</button>
+  <button class="btn btn-refresh" id="refreshBtn" onclick="doRefresh()">⟳ 刷新</button>
+</div>
+</div>
+<div class="nav">
+  <a href="/">Trading</a>
+  <a href="/polymarket">Polymarket</a>
+  <a href="/nba">NBA</a>
+  <a href="/btc">BTC Signal</a>
+  <a href="/eth" class="active">ETH Signal</a>
+</div>
+<div class="meta" id="metaInfo">載入中...</div>
+</div>
+<div class="container" id="app"><div class="loading">⟳ 正在連接 Polymarket...</div></div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────
+const COIN = 'eth';
+const COIN_NAME = 'Ethereum';
+const COIN_SYMBOL = 'ETH';
+const COIN_ICON = 'Ξ';
+const PRICE_MIN = 500;
+
+// ── State ─────────────────────────────────────────────────────────────────
+let autoOn = true, intv = null, curFilter = 'all';
+let D = { signal: null, markets: [], history: [] };
+const $ = s => document.querySelector(s);
+const pct = v => (v * 100).toFixed(1) + '%';
+const usd = v => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+// ── API ───────────────────────────────────────────────────────────────────
+const GAMMA_DIRECT = 'https://gamma-api.polymarket.com';
+const CORS_PROXY = 'https://corsproxy.io/?url=';
+
+async function fetchMarkets() {
+    const url = `${GAMMA_DIRECT}/markets?limit=500&active=true&order=volume24hr&ascending=false`;
+    try {
+        const r = await fetch(url);
+        if (r.ok) return await r.json();
+    } catch (e) {}
+    // CORS fallback
+    const r = await fetch(CORS_PROXY + encodeURIComponent(url));
+    if (!r.ok) throw new Error('Polymarket API unavailable');
+    return await r.json();
+}
+
+// Try Flask proxy first, then direct/CORS
+async function fetchETHMarkets() {
+    let all;
+    try {
+        const r = await fetch('/api/poly/markets?limit=500&active=true&order=volume24hr&ascending=false');
+        if (r.ok) { all = await r.json(); }
+    } catch (e) {}
+    if (!all) all = await fetchMarkets();
+    return filterETH(all);
+}
+
+function filterETH(markets) {
+    const coinRegex = /\b(eth|ethereum|ether)\b/i;
+    const excludeRe = /(etf\b|sec approval|regulation\b|merge date|shanghai date|beacon chain)/i;
+    return markets.filter(m => {
+        const q = m.question || m.title || '';
+        return coinRegex.test(q) && !excludeRe.test(q);
+    });
+}
+
+// ── Signal Engine (client-side) ───────────────────────────────────────────
+function parseMarket(m) {
+    const q = (m.question || m.title || '').toLowerCase();
+    let prices = [], outcomes = [];
+    try { prices = JSON.parse(m.outcomePrices || '[]').map(Number); } catch(e) {}
+    try { outcomes = JSON.parse(m.outcomes || '[]'); } catch(e) {}
+    const vol = Number(m.volume || m.volumeNum || 0);
+    const yesPrice = prices[0] || 0;
+    const noPrice = prices[1] || 0;
+
+    let type = 'other', direction = null, rangeLow = null, rangeHigh = null;
+    let threshold = null, abDirection = null, timeframe = null;
+
+    // Timeframe
+    if (q.includes('5 min') || q.includes('5min')) timeframe = '5m';
+    else if (q.includes('15 min') || q.includes('15min')) timeframe = '15m';
+    else if (q.includes('1 hour') || q.includes('1hr')) timeframe = '1h';
+    else if (q.includes('4 hour') || q.includes('4hr')) timeframe = '4h';
+    else if (q.includes('daily') || q.match(/(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d+/)) timeframe = 'daily';
+    else if (q.includes('weekly') || q.includes('week')) timeframe = 'weekly';
+    else if (q.includes('monthly') || q.includes('month')) timeframe = 'monthly';
+
+    // Type classification
+    if (q.includes('up or down') || q.includes('up/down')) {
+        type = 'updown';
+        const first = (outcomes[0] || '').toLowerCase();
+        if (first === 'up') direction = yesPrice >= 0.5 ? 'up' : 'down';
+        else direction = yesPrice >= 0.5 ? 'down' : 'up';
+    } else if (q.match(/\d[\d,]*\s*-\s*\d[\d,]*/)) {
+        const rm = q.match(/([\d,]+)\s*-\s*([\d,]+)/);
+        if (rm) {
+            const lo = Number(rm[1].replace(/,/g, ''));
+            const hi = Number(rm[2].replace(/,/g, ''));
+            if (lo >= PRICE_MIN && hi >= PRICE_MIN) { type = 'range'; rangeLow = lo; rangeHigh = hi; }
+        }
+    } else if (q.includes('above') || q.includes('below') || q.includes('↑') || q.includes('↓')) {
+        type = 'above_below';
+        const nm = q.match(/([\d,]+)/);
+        if (nm) {
+            const val = Number(nm[1].replace(/,/g, ''));
+            if (val >= PRICE_MIN) {
+                threshold = val;
+                abDirection = (q.includes('above') || q.includes('↑')) ? 'above' : 'below';
+            }
+        }
+    }
+
+    return {
+        id: m.id, question: m.question || m.title, type, direction,
+        rangeLow, rangeHigh, threshold, abDirection, timeframe,
+        yesPrice, noPrice, volume: vol, outcomes, slug: m.slug
+    };
+}
+
+function deriveSignal(markets) {
+    if (!markets.length) return null;
+    const upDown = markets.filter(m => m.type === 'updown');
+    const priceRange = markets.filter(m => m.type === 'range');
+    const aboveBelow = markets.filter(m => m.type === 'above_below');
+
+    // Direction bias
+    let bullScore = 0, bearScore = 0, dirWeight = 0;
+    upDown.forEach(m => {
+        const w = Math.log10(Math.max(m.volume, 1) + 1);
+        if (m.direction === 'up') bullScore += m.yesPrice * w;
+        else bearScore += m.yesPrice * w;
+        dirWeight += w;
+    });
+    const dirBias = dirWeight > 0 ? (bullScore - bearScore) / dirWeight : 0;
+
+    // Price range
+    let expectedPrice = null, topRange = null, rangeConf = 0;
+    if (priceRange.length > 0) {
+        let totalProb = 0, weightedMid = 0, maxProb = 0;
+        priceRange.forEach(m => {
+            if (m.rangeLow != null && m.rangeHigh != null) {
+                const mid = (m.rangeLow + m.rangeHigh) / 2;
+                weightedMid += mid * m.yesPrice;
+                totalProb += m.yesPrice;
+                if (m.yesPrice > maxProb) {
+                    maxProb = m.yesPrice;
+                    topRange = { low: m.rangeLow, high: m.rangeHigh, prob: m.yesPrice };
+                }
+            }
+        });
+        if (totalProb > 0) { expectedPrice = weightedMid / totalProb; rangeConf = maxProb; }
+    }
+
+    // Above/below
+    let aboveScore = 0, belowScore = 0, abWeight = 0;
+    aboveBelow.forEach(m => {
+        const w = Math.log10(Math.max(m.volume, 1) + 1);
+        if (m.abDirection === 'above') aboveScore += m.yesPrice * w;
+        else belowScore += m.yesPrice * w;
+        abWeight += w;
+    });
+    const abBias = abWeight > 0 ? (aboveScore - belowScore) / abWeight : 0;
+
+    // Range bias
+    let rangeBias = 0;
+    if (expectedPrice && priceRange.length > 0) {
+        const lows = priceRange.filter(m => m.rangeLow != null).map(m => m.rangeLow);
+        const highs = priceRange.filter(m => m.rangeHigh != null).map(m => m.rangeHigh);
+        if (lows.length && highs.length) {
+            const medianPrice = (Math.min(...lows) + Math.max(...highs)) / 2;
+            if (medianPrice > 0) rangeBias = Math.max(-1, Math.min(1, (expectedPrice - medianPrice) / medianPrice * 5));
+        }
+    }
+
+    // Composite
+    let composite = 0.5 * dirBias + 0.3 * rangeBias + 0.2 * abBias;
+    composite = Math.max(-1, Math.min(1, composite));
+
+    const components = [Math.abs(dirBias), Math.abs(rangeBias), Math.abs(abBias)];
+    const nonzero = components.filter(c => c > 0.01);
+    const strength = nonzero.length > 0 ? Math.min(1, nonzero.reduce((a, b) => a + b, 0) / nonzero.length) : 0;
+
+    let label, action;
+    if (composite > 0.3) { label = 'STRONG BULL'; action = '積極做多'; }
+    else if (composite > 0.15) { label = 'BULL'; action = '輕倉做多'; }
+    else if (composite < -0.3) { label = 'STRONG BEAR'; action = '積極做空'; }
+    else if (composite < -0.15) { label = 'BEAR'; action = '輕倉做空'; }
+    else { label = 'NEUTRAL'; action = '觀望等待'; }
+
+    const totalVolume = markets.reduce((s, m) => s + m.volume, 0);
+
+    return {
+        composite: +composite.toFixed(4), label, strength: +strength.toFixed(4), action,
+        dirBias: +dirBias.toFixed(4), rangeBias: +rangeBias.toFixed(4), abBias: +abBias.toFixed(4),
+        topRange, expectedPrice: expectedPrice ? Math.round(expectedPrice) : null,
+        marketCount: markets.length, upDownCount: upDown.length,
+        rangeCount: priceRange.length, abCount: aboveBelow.length,
+        totalVolume: +totalVolume.toFixed(2),
+        timestamp: new Date().toISOString()
+    };
+}
+
+// ── Fetch + Compute ───────────────────────────────────────────────────────
+async function fetchAll() {
+    try {
+        const raw = await fetchETHMarkets();
+        let markets = raw.map(parseMarket).filter(m => m.type !== 'other');
+        const signal = deriveSignal(markets);
+
+        D.signal = signal;
+        D.markets = markets;
+        if (signal) {
+            D.history.push({ composite: signal.composite, ts: signal.timestamp });
+            if (D.history.length > 60) D.history = D.history.slice(-60);
+        }
+        D.lastUpdate = new Date().toISOString();
+        render();
+        $('#metaInfo').textContent = `更新: ${new Date().toLocaleTimeString('zh-TW')} ｜ ${markets.length} ETH 市場 ｜ Polymarket Gamma API`;
+    } catch (e) {
+        $('#metaInfo').textContent = '⚠ ' + e.message;
+    }
+}
+
+async function doRefresh() {
+    $('#refreshBtn').textContent = '⟳ ...';
+    try { await fetchAll(); } finally { $('#refreshBtn').textContent = '⟳ 刷新'; }
+}
+
+function toggleAuto() {
+    autoOn = !autoOn;
+    const b = $('#autoBtn');
+    b.textContent = autoOn ? '● 自動' : '○ 暫停';
+    b.className = 'btn btn-auto' + (autoOn ? '' : ' off');
+    if (autoOn) intv = setInterval(fetchAll, 30000);
+    else clearInterval(intv);
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function render() {
+    const { signal: sig, markets, history } = D;
+    if (!sig && markets.length === 0) {
+        $('#app').innerHTML = `<div class="gauge-card" style="text-align:center;padding:40px">
+            <div style="font-size:48px;margin-bottom:16px;">Ξ</div>
+            <div style="font-size:18px;font-weight:700;color:var(--muted);margin-bottom:8px;">目前 Polymarket 上無活躍 ETH 價格市場</div>
+            <div style="font-size:13px;color:var(--dim);line-height:1.8;">
+                Polymarket 的 ETH 相關市場較少<br>
+                系統每 30 秒自動重新掃描<br>
+                有新市場出現時會自動顯示信號
+            </div>
+            <div style="margin-top:20px;font-family:var(--mono);font-size:11px;color:var(--dim);">
+                掃描範圍: 500 個活躍市場 | 關鍵字: eth, ethereum, ether
+            </div>
+        </div>`;
+        return;
+    }
+    if (!sig) { $('#app').innerHTML = '<div class="loading">⏳ 等待數據...</div>'; return; }
+
+    const sc = sig.composite > 0.15 ? 'var(--bull)' : sig.composite < -0.15 ? 'var(--bear)' : 'var(--neutral)';
+    const ang = sig.composite * 90;
+    let h = '';
+
+    // Gauge
+    h += `<div class="gauge-card" style="box-shadow:0 0 40px ${sc}10">
+    <svg width="260" height="150" viewBox="0 0 280 160" style="display:block;margin:0 auto">
+    <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="var(--bear)"/>
+      <stop offset="35%" stop-color="var(--neutral)"/>
+      <stop offset="65%" stop-color="var(--neutral)"/>
+      <stop offset="100%" stop-color="var(--bull)"/>
+    </linearGradient></defs>
+    <path d="M 30 140 A 110 110 0 0 1 250 140" fill="none" stroke="var(--card2)" stroke-width="20" stroke-linecap="round"/>
+    <path d="M 30 140 A 110 110 0 0 1 250 140" fill="none" stroke="url(#gg)" stroke-width="16" stroke-linecap="round" opacity="0.6"/>
+    <g transform="rotate(${ang},140,140)">
+      <line x1="140" y1="140" x2="140" y2="48" stroke="${sc}" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="140" cy="140" r="8" fill="${sc}"/>
+      <circle cx="140" cy="140" r="4" fill="var(--bg)"/>
+    </g>
+    <text x="20" y="155" fill="var(--bear)" font-size="11" font-family="var(--mono)">BEAR</text>
+    <text x="230" y="155" fill="var(--bull)" font-size="11" font-family="var(--mono)">BULL</text>
+    </svg>
+    <div class="signal-label" style="color:${sc}">${sig.label}</div>
+    <div class="signal-meta">分數: ${(sig.composite * 100).toFixed(1)} ｜強度: ${(sig.strength * 100).toFixed(0)}%</div>
+    <div class="action-box" style="background:${sc}10;border:1px solid ${sc}30">
+      <div class="action-text" style="color:${sc}">${sig.action}</div>
+      <div class="action-sub">${sig.marketCount} 個市場 ｜ ${usd(sig.totalVolume)}</div>
+    </div></div>`;
+
+    // Stats
+    const bc = sig.dirBias > 0 ? 'var(--bull)' : sig.dirBias < 0 ? 'var(--bear)' : 'var(--neutral)';
+    h += `<div class="stats">
+    <div class="stat-card"><div class="stat-label">方向偏差</div>
+      <div class="stat-value" style="color:${bc}">${sig.dirBias > 0 ? '+' : ''}${(sig.dirBias * 100).toFixed(1)}</div>
+      <div class="stat-sub">${sig.dirBias > 0 ? '偏多' : sig.dirBias < 0 ? '偏空' : '平衡'}</div></div>
+    <div class="stat-card"><div class="stat-label">活躍市場</div>
+      <div class="stat-value" style="color:var(--accent)">${sig.marketCount}</div>
+      <div class="stat-sub">漲${sig.upDownCount} 區${sig.rangeCount} 突${sig.abCount}</div></div>
+    <div class="stat-card"><div class="stat-label">信號強度</div>
+      <div class="stat-value" style="color:${sig.strength > 0.5 ? 'var(--bull)' : 'var(--neutral)'}">${(sig.strength * 100).toFixed(0)}%</div>
+      <div class="stat-sub">${sig.strength > 0.5 ? '高度可信' : '參考用'}</div></div></div>`;
+
+    // Signal History
+    if (history.length > 1) {
+        const hb = history.map(x => {
+            const c = x.composite;
+            const co = c > 0.15 ? 'var(--bull)' : c < -0.15 ? 'var(--bear)' : 'var(--neutral)';
+            return `<div class="history-bar" style="height:${Math.max(Math.abs(c) * 100, 4)}%;background:${co};align-self:${c >= 0 ? 'flex-end' : 'flex-start'}"></div>`;
+        }).join('');
+        h += `<div class="history-card"><div class="dist-title">信號趨勢 (${history.length}筆)</div><div class="history-chart">${hb}</div></div>`;
+    }
+
+    // Price Range Distribution
+    const rng = markets.filter(m => m.type === 'range').sort((a, b) => (a.rangeLow || 0) - (b.rangeLow || 0));
+    if (rng.length > 0) {
+        const mx = Math.max(...rng.map(r => r.yesPrice), 0.01);
+        let rb = '';
+        rng.forEach(r => {
+            const hp = (r.yesPrice / mx) * 100;
+            const im = r.yesPrice === mx;
+            const co = im ? 'linear-gradient(180deg,var(--bull),#16a34a)' : 'linear-gradient(180deg,var(--accent),#4f6dd4)';
+            const sh = im ? 'box-shadow:0 0 12px rgba(34,197,94,0.3);' : '';
+            // ETH price scale: show in full dollars if < 10000, else Xk format
+            const fmtLow = r.rangeLow ? (r.rangeLow >= 1000 ? (r.rangeLow / 1000).toFixed(1) + 'k' : r.rangeLow) : '?';
+            const fmtHigh = r.rangeHigh ? (r.rangeHigh >= 1000 ? (r.rangeHigh / 1000).toFixed(1) + 'k' : r.rangeHigh) : '?';
+            rb += `<div class="dist-col">
+              <div class="dist-pct" style="color:${im ? 'var(--bull)' : 'var(--muted)'};font-weight:${im ? 700 : 400}">${pct(r.yesPrice)}</div>
+              <div class="dist-bar" style="height:${hp}%;background:${co};${sh}"></div>
+              <div class="dist-range">${fmtLow}-${fmtHigh}</div>
+            </div>`;
+        });
+        h += `<div class="dist-card"><div class="dist-title">價格區間機率分佈</div><div class="dist-bars">${rb}</div></div>`;
+    }
+
+    // Strategy Suggestions
+    const c = sig.composite;
+    let st = [];
+    if (c > 0.3) {
+        st.push({ n: '積極做多', d: '多方機率偏高', r: '低', rc: 'var(--bull)' });
+        st.push({ n: '買看漲期權', d: '槓桿放大', r: '中', rc: 'var(--neutral)' });
+    } else if (c > 0.15) {
+        st.push({ n: '輕倉做多', d: '溫和偏多', r: '低', rc: 'var(--bull)' });
+    } else if (c < -0.3) {
+        st.push({ n: '積極做空', d: '空方佔優', r: '中', rc: 'var(--neutral)' });
+        st.push({ n: '減持現貨', d: '降低敞口', r: '低', rc: 'var(--bull)' });
+    } else if (c < -0.15) {
+        st.push({ n: '輕倉做空', d: '溫和偏空', r: '低', rc: 'var(--bull)' });
+    } else {
+        st.push({ n: '區間操作', d: '高拋低吸', r: '低', rc: 'var(--bull)' });
+        st.push({ n: '觀望等待', d: '等方向明朗', r: '無', rc: 'var(--dim)' });
+    }
+    if (sig.topRange) {
+        const fmtLow = sig.topRange.low >= 1000 ? (sig.topRange.low / 1000).toFixed(1) + 'k' : sig.topRange.low;
+        const fmtHigh = sig.topRange.high >= 1000 ? (sig.topRange.high / 1000).toFixed(1) + 'k' : sig.topRange.high;
+        st.push({ n: `目標 $${fmtLow}-$${fmtHigh}`, d: `最高機率 (${pct(sig.topRange.prob)})`, r: '參考', rc: 'var(--accent2)' });
+    }
+    if (sig.expectedPrice) {
+        st.push({ n: `預期價格 $${sig.expectedPrice.toLocaleString()}`, d: '機率加權中位數', r: '參考', rc: 'var(--accent)' });
+    }
+    h += `<div class="dist-card"><div class="dist-title">建議策略</div>${st.map(s =>
+        `<div class="strategy-item"><div><div class="strat-name">${s.n}</div><div class="strat-desc">${s.d}</div></div><span class="strat-risk" style="color:${s.rc};border:1px solid ${s.rc}40">風險:${s.r}</span></div>`
+    ).join('')}</div>`;
+
+    // Filters
+    const cn = { all: markets.length, updown: 0, range: 0, above_below: 0 };
+    const lb = { all: '全部', updown: '漲跌', range: '區間', above_below: '突破' };
+    markets.forEach(m => { if (cn[m.type] !== undefined) cn[m.type]++; });
+    h += '<div class="filters">';
+    for (const k of ['all', 'updown', 'range', 'above_below']) {
+        h += `<button class="filter-btn${curFilter === k ? ' active' : ''}" onclick="setF('${k}')">${lb[k]}(${cn[k]})</button>`;
+    }
+    h += '</div>';
+
+    // Market Cards
+    const fl = curFilter === 'all' ? markets : markets.filter(m => m.type === curFilter);
+    [...fl].sort((a, b) => b.volume - a.volume).forEach(m => {
+        const pc = m.yesPrice >= 0.5 ? 'var(--bull)' : 'var(--bear)';
+        const tf = m.timeframe ? `<span class="tag tag-tf">${m.timeframe}</span>` : '';
+        h += `<div class="market-card">
+          <div class="market-row">
+            <div style="flex:1">
+              <div class="market-tags"><span class="tag tag-${m.type}">${lb[m.type] || m.type}</span>${tf}</div>
+              <div class="market-q">${m.question}</div>
+            </div>
+            <div style="text-align:right;min-width:90px">
+              <div class="market-price" style="color:${pc}">${pct(m.yesPrice)}</div>
+              <div class="market-vol">Vol:${usd(m.volume)}</div>
+            </div>
+          </div>
+          <div class="prob-bar"><div class="prob-fill" style="width:${pct(m.yesPrice)};background:${pc}"></div></div>
+        </div>`;
+    });
+    if (fl.length === 0) h += '<div class="loading">無符合條件的市場</div>';
+
+    // Methodology
+    h += `<div class="method"><h3>系統方法論</h3>
+    <p><strong>數據源：</strong>Polymarket Gamma API 每30秒自動刷新</p>
+    <p><strong>信號：</strong>方向偏差(50%) + 區間分佈(30%) + 突破機率(20%) 三維加權運算</p>
+    <p><strong>權重：</strong>交易量 log10 加權，高交易量市場影響力更大</p>
+    <p><strong>分類：</strong>漲跌(up/down) = 方向判斷 ｜ 區間(range) = 價格預測 ｜ 突破(above/below) = 關鍵位判斷</p>
+    <p><strong>強度：</strong>各維度非零分量的平均絕對值，>50% 為高度可信</p>
+    <p><strong class="warn">風險提示：</strong>本系統僅供參考，不構成投資建議。Polymarket 為預測市場，流動性和參與度會影響信號品質。</p></div>`;
+
+    $('#app').innerHTML = h;
+}
+
+function setF(f) { curFilter = f; render(); }
+
+// ── Init ──────────────────────────────────────────────────────────────────
+fetchAll();
+intv = setInterval(fetchAll, 30000);
+</script>
+</body>
+</html>
