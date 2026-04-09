@@ -17,6 +17,8 @@ from pathlib import Path
 
 import numpy as np
 
+from utils import file_lock
+
 # Ensure UTF-8 output on Windows
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -876,28 +878,29 @@ class EvolutionAgent:
     def _comment_out_bot(self, bot_name: str):
         """Comment out a bot section in bots.toml."""
         self._backup_toml()
-        with open(TOML_PATH, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        with file_lock(TOML_PATH):
+            with open(TOML_PATH, "r", encoding="utf-8") as f:
+                lines = f.readlines()
 
-        new_lines = []
-        in_section = False
-        for line in lines:
-            if line.strip().startswith(f"[bots.{bot_name}]"):
-                in_section = True
-                new_lines.append(f"# DROPPED by evolution_agent\n")
-                new_lines.append(f"# {line}")
-                continue
-            if in_section:
-                if line.strip().startswith("["):
-                    in_section = False
-                    new_lines.append(line)
-                else:
+            new_lines = []
+            in_section = False
+            for line in lines:
+                if line.strip().startswith(f"[bots.{bot_name}]"):
+                    in_section = True
+                    new_lines.append(f"# DROPPED by evolution_agent\n")
                     new_lines.append(f"# {line}")
-                continue
-            new_lines.append(line)
+                    continue
+                if in_section:
+                    if line.strip().startswith("["):
+                        in_section = False
+                        new_lines.append(line)
+                    else:
+                        new_lines.append(f"# {line}")
+                    continue
+                new_lines.append(line)
 
-        with open(TOML_PATH, "w", encoding="utf-8") as f:
-            f.writelines(new_lines)
+            with open(TOML_PATH, "w", encoding="utf-8") as f:
+                f.writelines(new_lines)
         log.info("[%s] Commented out in bots.toml", bot_name.upper())
 
     def _is_weekly_review_due(self) -> bool:

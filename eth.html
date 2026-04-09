@@ -111,6 +111,7 @@ body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 10
 <a href="/nba" class="nav-tab" data-page="nba" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">NBA</a>
 <a href="/btc" class="nav-tab" data-page="btc" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">BTC</a>
 <a href="/eth" class="nav-tab" data-page="eth" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">ETH</a>
+<a href="/wti" class="nav-tab" data-page="wti" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">WTI</a>
 </nav>
 <script>document.querySelectorAll('.nav-tab').forEach(function(t){var p=location.pathname;var d=t.dataset.page;var active=(p==='/'&&d==='trading')||(p==='/'+d);if(active){t.style.borderBottomColor='#6366f1';t.style.color='#e2e8f0';t.style.background='rgba(99,102,241,0.1)'}});</script>
 <div class="header">
@@ -154,27 +155,60 @@ const usd = v => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits
 const GAMMA_DIRECT = 'https://gamma-api.polymarket.com';
 const CORS_PROXY = 'https://corsproxy.io/?url=';
 
-async function fetchMarkets() {
-    const url = `${GAMMA_DIRECT}/markets?limit=500&active=true&order=volume24hr&ascending=false`;
+async function fetchMarketsFromAPI(params) {
+    const qs = new URLSearchParams(params).toString();
     try {
-        const r = await fetch(url);
+        const r = await fetch('/api/poly/markets?' + qs);
         if (r.ok) return await r.json();
     } catch (e) {}
-    // CORS fallback
+    try {
+        const r = await fetch(`${GAMMA_DIRECT}/markets?${qs}`);
+        if (r.ok) return await r.json();
+    } catch (e) {}
+    const url = `${GAMMA_DIRECT}/markets?${qs}`;
     const r = await fetch(CORS_PROXY + encodeURIComponent(url));
     if (!r.ok) throw new Error('Polymarket API unavailable');
     return await r.json();
 }
 
-// Try Flask proxy first, then direct/CORS
-async function fetchETHMarkets() {
-    let all;
+async function fetchEventsFromAPI(params) {
+    const qs = new URLSearchParams(params).toString();
     try {
-        const r = await fetch('/api/poly/markets?limit=500&active=true&order=volume24hr&ascending=false');
-        if (r.ok) { all = await r.json(); }
+        const r = await fetch('/api/poly/events?' + qs);
+        if (r.ok) return await r.json();
     } catch (e) {}
-    if (!all) all = await fetchMarkets();
-    return filterETH(all);
+    try {
+        const r = await fetch(`${GAMMA_DIRECT}/events?${qs}`);
+        if (r.ok) return await r.json();
+    } catch (e) {}
+    return [];
+}
+
+async function fetchETHMarkets() {
+    // Fetch from multiple sources in parallel
+    const [topMarkets, allEvents] = await Promise.all([
+        fetchMarketsFromAPI({ limit: 300, active: true, order: 'volume24hr', ascending: false }),
+        fetchEventsFromAPI({ limit: 100, active: true, order: 'volume24hr', ascending: false }),
+    ]);
+
+    // Extract markets from events whose TITLE matches ETH
+    const ethTitleRe = /\b(eth|ethereum|ether)\b/i;
+    const eventMarkets = [];
+    (allEvents || []).forEach(ev => {
+        const title = ev.title || '';
+        if (ethTitleRe.test(title)) {
+            (ev.markets || []).forEach(m => eventMarkets.push(m));
+        }
+    });
+
+    // Merge & deduplicate (prioritize event markets)
+    const seen = new Set();
+    const allMarkets = [];
+    [...eventMarkets, ...topMarkets].forEach(m => {
+        if (m.id && !seen.has(m.id)) { seen.add(m.id); allMarkets.push(m); }
+    });
+
+    return filterETH(allMarkets);
 }
 
 function filterETH(markets) {
@@ -208,12 +242,25 @@ function parseMarket(m) {
     else if (q.includes('weekly') || q.includes('week')) timeframe = 'weekly';
     else if (q.includes('monthly') || q.includes('month')) timeframe = 'monthly';
 
-    // Type classification
+    // Type classification — handle "reach $X" (bull) and "dip to $X" (bear) patterns
+    const reachMatch = q.match(/reach\s*\$?([\d,]+)/i);
+    const dipMatch = q.match(/dip\s+to\s*\$?([\d,]+)/i);
+    const hitHighMatch = q.match(/hit\s*\(high\)\s*\$?([\d,]+)/i);
+    const hitLowMatch = q.match(/hit\s*\(low\)\s*\$?([\d,]+)/i);
+
     if (q.includes('up or down') || q.includes('up/down')) {
         type = 'updown';
         const first = (outcomes[0] || '').toLowerCase();
         if (first === 'up') direction = yesPrice >= 0.5 ? 'up' : 'down';
         else direction = yesPrice >= 0.5 ? 'down' : 'up';
+    } else if (reachMatch || hitHighMatch) {
+        type = 'above_below';
+        const val = Number((reachMatch || hitHighMatch)[1].replace(/,/g, ''));
+        if (val >= PRICE_MIN) { threshold = val; abDirection = 'above'; }
+    } else if (dipMatch || hitLowMatch) {
+        type = 'above_below';
+        const val = Number((dipMatch || hitLowMatch)[1].replace(/,/g, ''));
+        if (val >= PRICE_MIN) { threshold = val; abDirection = 'below'; }
     } else if (q.match(/\d[\d,]*\s*-\s*\d[\d,]*/)) {
         const rm = q.match(/([\d,]+)\s*-\s*([\d,]+)/);
         if (rm) {
@@ -295,8 +342,15 @@ function deriveSignal(markets) {
         }
     }
 
-    // Composite
-    let composite = 0.5 * dirBias + 0.3 * rangeBias + 0.2 * abBias;
+    // Composite — adaptive weights based on available data
+    let wDir = 0.5, wRange = 0.3, wAb = 0.2;
+    if (upDown.length === 0 && aboveBelow.length > 0) {
+        // No up/down markets, shift weight to above/below
+        wDir = 0; wAb = 0.7; wRange = 0.3;
+    } else if (upDown.length === 0 && priceRange.length > 0) {
+        wDir = 0; wRange = 0.7; wAb = 0.3;
+    }
+    let composite = wDir * dirBias + wRange * rangeBias + wAb * abBias;
     composite = Math.max(-1, Math.min(1, composite));
 
     const components = [Math.abs(dirBias), Math.abs(rangeBias), Math.abs(abBias)];

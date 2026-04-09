@@ -274,7 +274,8 @@
   @media(max-width:640px){
     .game-grid,.edge-grid,.tw-lottery-grid{grid-template-columns:1fr;}
     .model-info{grid-template-columns:1fr;}
-    .h-inner{flex-direction:column;align-items:flex-start;}}
+    .h-inner{flex-direction:column;align-items:flex-start;}
+    #wr-kpi-row{grid-template-columns:1fr !important;}}
 
   /* LIVE SCORE CARDS */
   .score-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;
@@ -306,6 +307,7 @@
 <a href="/nba" class="nav-tab" data-page="nba" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">NBA</a>
 <a href="/btc" class="nav-tab" data-page="btc" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">BTC</a>
 <a href="/eth" class="nav-tab" data-page="eth" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">ETH</a>
+<a href="/wti" class="nav-tab" data-page="wti" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">WTI</a>
 </nav>
 <script>document.querySelectorAll('.nav-tab').forEach(function(t){var p=location.pathname;var d=t.dataset.page;var active=(p==='/'&&d==='trading')||(p==='/'+d);if(active){t.style.borderBottomColor='#6366f1';t.style.color='#e2e8f0';t.style.background='rgba(99,102,241,0.1)'}});</script>
 
@@ -354,6 +356,26 @@
   <!-- SECTION 1: TODAY'S GAMES -->
   <section>
     <div class="section-title">Today's Games</div>
+
+    <!-- Win-rate KPI row -->
+    <div id="wr-kpi-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;text-align:center;">
+        <div style="font-family:'Share Tech Mono';font-size:16px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">今日勝率</div>
+        <div id="wr-today" style="font-family:'Share Tech Mono';font-size:40px;font-weight:900;color:var(--muted);">—</div>
+        <div id="wr-today-sub" style="font-family:'Share Tech Mono';font-size:16px;color:var(--muted);margin-top:6px;">0 / 0 games</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;text-align:center;">
+        <div style="font-family:'Share Tech Mono';font-size:16px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">本周勝率</div>
+        <div id="wr-week" style="font-family:'Share Tech Mono';font-size:40px;font-weight:900;color:var(--muted);">—</div>
+        <div id="wr-week-sub" style="font-family:'Share Tech Mono';font-size:16px;color:var(--muted);margin-top:6px;">0 / 0 games</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;text-align:center;">
+        <div style="font-family:'Share Tech Mono';font-size:16px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">本月勝率</div>
+        <div id="wr-month" style="font-family:'Share Tech Mono';font-size:40px;font-weight:900;color:var(--muted);">—</div>
+        <div id="wr-month-sub" style="font-family:'Share Tech Mono';font-size:16px;color:var(--muted);margin-top:6px;">0 / 0 games</div>
+      </div>
+    </div>
+
     <div class="game-grid" id="games-grid">
       <!-- skeleton -->
       <div class="skeleton-card">
@@ -450,7 +472,8 @@
               <th style="padding:8px 12px;text-align:left;">PICK</th>
               <th style="padding:8px 12px;text-align:left;">WINNER</th>
               <th style="padding:8px 12px;text-align:center;">SCORE</th>
-              <th style="padding:8px 12px;text-align:center;">RESULT</th>
+              <th style="padding:8px 12px;text-align:center;">勝負</th>
+              <th style="padding:8px 12px;text-align:center;">總分檢核</th>
             </tr>
           </thead>
           <tbody id="bt-body">
@@ -597,26 +620,47 @@ function renderGames(games) {
       const actualMargin = Math.abs(score.homeScore - score.awayScore);
       const actualWinner = actualHomeWin ? abbrevTeam(g.home) : abbrevTeam(g.away);
 
+      // Total score check
+      const actualTotal = score.homeScore + score.awayScore;
+      const predTotal = g.pred_total || 0;
+      const totalDiff = actualTotal - predTotal;
+      const totalDiffAbs = Math.abs(totalDiff).toFixed(1);
+      const totalAccurate = predTotal > 0 && Math.abs(totalDiff) <= 10;
+
       if (isFinal) {
+        const totalTag = predTotal > 0
+          ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-top:6px;border-radius:5px;
+              background:${totalAccurate ? '#eff6ff' : '#fff7ed'};border:1px solid ${totalAccurate ? '#93c5fd' : '#fed7aa'};
+              font-family:'Share Tech Mono';font-size:11px;">
+              <span style="color:${totalAccurate ? '#1e40af' : '#9a3412'};">
+                ${totalAccurate ? '✅' : '⚠️'} 總分: 預測 <b>${predTotal.toFixed(1)}</b> → 實際 <b>${actualTotal}</b>
+              </span>
+              <span style="color:${totalAccurate ? '#059669' : '#dc2626'};font-weight:700;">
+                ${totalDiff > 0 ? '+' : ''}${totalDiff.toFixed(1)} (誤差${totalDiffAbs})
+              </span>
+            </div>` : '';
+
         if (predictCorrect) {
           resultHTML = `<div style="text-align:center;padding:8px;margin-top:8px;border-radius:6px;
             background:#ecfdf5;border:1px solid #6ee7b7;font-family:'Share Tech Mono';font-size:12px;color:#065f46;">
             ✅ 預測正確！ ${actualWinner} WIN ${score.awayScore}-${score.homeScore} (差${actualMargin}分)
-          </div>`;
+          </div>${totalTag}`;
           cardBorder = 'border-left:4px solid #059669;';
         } else {
           resultHTML = `<div style="text-align:center;padding:8px;margin-top:8px;border-radius:6px;
             background:#fef2f2;border:1px solid #fca5a5;font-family:'Share Tech Mono';font-size:12px;color:#991b1b;">
             ❌ 預測錯誤 — 實際: ${actualWinner} WIN ${score.awayScore}-${score.homeScore} (差${actualMargin}分)
-          </div>`;
+          </div>${totalTag}`;
           cardBorder = 'border-left:4px solid #dc2626;';
         }
       } else if (isLive) {
         const onTrack = homeWin === actualHomeWin;
+        const liveTotal = predTotal > 0
+          ? ` | 總分 ${actualTotal}/${predTotal.toFixed(0)}` : '';
         resultHTML = `<div style="text-align:center;padding:6px;margin-top:8px;border-radius:6px;
           background:${onTrack ? '#f0fdf4' : '#fff7ed'};border:1px solid ${onTrack ? '#bbf7d0' : '#fed7aa'};
           font-family:'Share Tech Mono';font-size:11px;color:${onTrack ? '#166534' : '#9a3412'};">
-          ${onTrack ? '🟢' : '🟡'} LIVE: ${score.awayScore}-${score.homeScore} (${onTrack ? '預測中' : '預測落後'})
+          ${onTrack ? '🟢' : '🟡'} LIVE: ${score.awayScore}-${score.homeScore} (${onTrack ? '預測中' : '預測落後'})${liveTotal}
         </div>`;
         cardBorder = onTrack ? 'border-left:4px solid #059669;' : 'border-left:4px solid #d97706;';
       }
@@ -958,6 +1002,94 @@ function renderTWLottery(games) {
 }
 
 // ─── Render: Backtest Results ──────────────────────────────────────
+// ─── Render: Win Rate KPIs (Today / Week / Month) ────────────────
+function renderWinRates(bt, games) {
+  // Combine backtest recent data with today's live results
+  const now = new Date();
+  const todayStr = now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0');
+
+  // Get start of week (Monday)
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - mondayOffset);
+  const weekStartStr = monday.getFullYear().toString() +
+    String(monday.getMonth() + 1).padStart(2, '0') +
+    String(monday.getDate()).padStart(2, '0');
+
+  const monthStartStr = now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, '0') + '01';
+
+  // Collect results from backtest recent
+  const recentResults = (bt && bt.recent) ? bt.recent : [];
+
+  // Also collect today's live final results from game cards
+  const todayLiveResults = [];
+  if (games && games.length > 0) {
+    games.forEach(g => {
+      const scoreKey = g.home + '|' + g.away;
+      const score = liveScoreMap[scoreKey];
+      if (score && (score.completed || score.state === 'STATUS_FINAL')) {
+        const homeWin = g.home_prob > g.away_prob;
+        const actualHomeWin = score.homeScore > score.awayScore;
+        todayLiveResults.push({ date: todayStr, correct: homeWin === actualHomeWin });
+      }
+    });
+  }
+
+  // Merge: use live results for today (more up-to-date), backtest for past days
+  const allResults = [];
+  // Add backtest entries that are NOT today
+  recentResults.forEach(r => {
+    if (r.date !== todayStr) allResults.push(r);
+  });
+  // For today: prefer live results if available, otherwise use backtest
+  if (todayLiveResults.length > 0) {
+    todayLiveResults.forEach(r => allResults.push(r));
+  } else {
+    recentResults.filter(r => r.date === todayStr).forEach(r => allResults.push(r));
+  }
+
+  // Compute win rates
+  function calcWR(entries) {
+    if (entries.length === 0) return { pct: null, correct: 0, total: 0 };
+    const correct = entries.filter(e => e.correct).length;
+    return { pct: Math.round(correct / entries.length * 100), correct, total: entries.length };
+  }
+
+  const todayEntries = allResults.filter(r => r.date === todayStr);
+  const weekEntries = allResults.filter(r => r.date >= weekStartStr);
+  const monthEntries = allResults.filter(r => r.date >= monthStartStr);
+
+  const today = calcWR(todayEntries);
+  const week = calcWR(weekEntries);
+  const month = calcWR(monthEntries);
+
+  function wrColor(pct) {
+    if (pct === null) return 'var(--muted)';
+    if (pct >= 80) return '#059669';
+    if (pct >= 65) return '#0066cc';
+    if (pct >= 50) return '#d97706';
+    return '#dc2626';
+  }
+
+  function setWR(id, data) {
+    const el = document.getElementById(id);
+    const sub = document.getElementById(id + '-sub');
+    if (el) {
+      el.textContent = data.pct !== null ? data.pct + '%' : '—';
+      el.style.color = wrColor(data.pct);
+    }
+    if (sub) sub.textContent = data.correct + ' / ' + data.total + ' games';
+  }
+
+  setWR('wr-today', today);
+  setWR('wr-week', week);
+  setWR('wr-month', month);
+}
+
 function renderBacktest(bt) {
   if (!bt) return;
 
@@ -1006,6 +1138,28 @@ function renderBacktest(bt) {
     const pick_short = r.pick.split(' ').pop();
     const winner_short = r.winner.split(' ').pop();
 
+    // Total score check
+    let totalHTML = '<span style="color:var(--muted);">—</span>';
+    if (r.pred_total && r.actual_total) {
+      const totalDiff = r.actual_total - r.pred_total;
+      const totalDiffAbs = Math.abs(totalDiff).toFixed(0);
+      const totalOk = totalDiffAbs <= 10;
+      totalHTML = `<div style="line-height:1.4;">
+        <span style="font-size:10px;">${totalOk ? '✅' : '❌'}</span>
+        <span style="color:${totalOk ? '#059669' : '#dc2626'};font-weight:700;">${r.pred_total}</span>
+        <span style="color:var(--muted);">→</span>
+        <span style="font-weight:700;">${r.actual_total}</span>
+        <div style="font-size:9px;color:${totalOk ? '#059669' : '#dc2626'};">差${totalDiffAbs}分</div>
+      </div>`;
+    } else if (r.score) {
+      // Fallback: parse actual total from score string
+      const sp = r.score.split('-');
+      if (sp.length === 2) {
+        const at = parseInt(sp[0]) + parseInt(sp[1]);
+        totalHTML = `<span style="color:var(--muted);">${at}</span>`;
+      }
+    }
+
     return `<tr style="font-family:'Share Tech Mono';font-size:11px;${rowBg}">
       <td style="padding:6px 12px;color:var(--muted);">${date}</td>
       <td style="padding:6px 12px;">${away_short} @ ${home_short}</td>
@@ -1015,6 +1169,7 @@ function renderBacktest(bt) {
       <td style="padding:6px 12px;">${winner_short}</td>
       <td style="padding:6px 12px;text-align:center;color:var(--muted);">${r.score}</td>
       <td style="padding:6px 12px;text-align:center;font-size:14px;">${mark}</td>
+      <td style="padding:6px 12px;text-align:center;">${totalHTML}</td>
     </tr>`;
   }).join('');
 }
@@ -1035,7 +1190,10 @@ async function fetchLiveScores() {
     // Update score map for game cards
     updateLiveScoreMap(data);
     // Re-render game cards with updated scores (if loadedGames available)
-    if (window._loadedGames) renderGames(window._loadedGames);
+    if (window._loadedGames) {
+      renderGames(window._loadedGames);
+      renderWinRates(window._loadedBacktest, window._loadedGames);
+    }
 
     const container = document.getElementById('live-scores');
     const statusEl = document.getElementById('score-status');
@@ -1158,10 +1316,12 @@ async function loadNBA() {
       data = await r2.json();
     }
     window._loadedGames = data.games || [];
+    window._loadedBacktest = data.backtest || null;
     renderGames(window._loadedGames);
     renderEloRankings(data.elo_teams || {});
     renderTWLottery(window._loadedGames);
     renderBacktest(data.backtest);
+    renderWinRates(data.backtest, window._loadedGames);
     renderEdges(data.edges || []);
     updateTimestamp();
     startCountdown();

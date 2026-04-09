@@ -20,6 +20,7 @@ from pathlib import Path
 from client import PionexClient, PionexAPIError
 from config import Config
 from logger import setup_logger
+from utils import file_lock
 from strategy import TripleMAStrategy, BladeSignal
 
 log = setup_logger("triple_blade")
@@ -64,7 +65,8 @@ class TripleBladeBot:
             "signal_history": self._signal_history[-50:],  # Keep last 50
         }
         try:
-            STATE_FILE.write_text(json.dumps(state, indent=2))
+            with file_lock(STATE_FILE):
+                STATE_FILE.write_text(json.dumps(state, indent=2))
         except Exception as e:
             log.error("Failed to save state: %s", e)
 

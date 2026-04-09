@@ -360,8 +360,54 @@ def process_bot(
     # ── 5a. Orphan bot detection ──
     # Bot was externally stopped (grid out of range, manual cancel, liquidation)
     # but state still holds the old buOrderId. Rebuild if signal has a direction.
+    # COOLDOWN: prevent cancel→rebuild→cancel infinite loop.
     if bot_status in ("canceled", "closed", None) and bu_order_id:
         sig_dir = SIG_DIR.get(signal_state.sig_state, 0)
+
+        # Check cooldown: skip rebuild if recently canceled (within 2 hours)
+        last_cancel_time = state_data.get("last_cancel_time", "")
+        cancel_count = state_data.get("cancel_rebuild_count", 0)
+        now_utc = datetime.now(timezone.utc)
+        cooldown_active = False
+        if last_cancel_time:
+            try:
+                lct = datetime.fromisoformat(last_cancel_time)
+                hours_since = (now_utc - lct).total_seconds() / 3600
+                if hours_since < 2:
+                    cooldown_active = True
+                elif hours_since > 24:
+                    cancel_count = 0  # Reset counter after 24h
+            except (ValueError, TypeError):
+                pass
+
+        # Block rebuild after 3 consecutive cancels (likely persistent issue)
+        if cancel_count >= 3:
+            log.warning(
+                "[%s] REBUILD BLOCKED: bot canceled %d times — needs manual review",
+                bot_name.upper(), cancel_count,
+            )
+            save_state(bot_name, {
+                **state_data,
+                "bot_status": bot_status,
+                "last_cancel_time": now_utc.isoformat(),
+                "cancel_rebuild_count": cancel_count,
+                "rebuild_blocked": True,
+                "last_check": now_utc.isoformat(),
+            })
+            return "BLOCKED"
+
+        if cooldown_active and not direction_changed:
+            log.info(
+                "[%s] ORPHAN cooldown active — skipping rebuild (canceled %d times)",
+                bot_name.upper(), cancel_count,
+            )
+            save_state(bot_name, {
+                **state_data,
+                "bot_status": bot_status,
+                "last_check": now_utc.isoformat(),
+            })
+            return "COOLDOWN"
+
         if sig_dir != 0:
             log.warning(
                 "[%s] ORPHAN BOT DETECTED: bot %s is %s but signal is %s (dir=%d)",
@@ -409,7 +455,10 @@ def process_bot(
                             "bot_trend": trend,
                             "sig_state": signal_state.sig_state,
                             "current_direction": signal_state.current_direction,
-                            "last_check": datetime.now(timezone.utc).isoformat(),
+                            "last_check": now_utc.isoformat(),
+                            "last_cancel_time": now_utc.isoformat(),
+                            "cancel_rebuild_count": cancel_count + 1,
+                            "rebuild_blocked": False,
                         })
                         return "REBUILD"
                     else:

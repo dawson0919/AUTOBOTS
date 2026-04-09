@@ -16,6 +16,7 @@ from enum import Enum
 from typing import Optional
 
 from logger import setup_logger
+from utils import file_lock
 
 log = setup_logger("grid")
 
@@ -334,8 +335,9 @@ class FuturesGridStrategy:
 
     def _save_state(self):
         try:
-            with open(self.STATE_FILE, "w") as f:
-                json.dump(self.state.to_dict(), f, indent=2)
+            with file_lock(self.STATE_FILE):
+                with open(self.STATE_FILE, "w") as f:
+                    json.dump(self.state.to_dict(), f, indent=2)
         except Exception as e:
             log.error("Failed to save grid state: %s", e)
 

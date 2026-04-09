@@ -35,8 +35,19 @@ def check_auth() -> bool:
 
 @app.before_request
 def auth_middleware():
-    # All API endpoints are open (auth via dashboard token optional)
-    return  # Temporarily disable auth for debugging
+    # Skip auth for static HTML pages and public proxy endpoints
+    if request.path in _HTML_PAGES or request.path == "/favicon.ico":
+        return
+    if request.path == "/nba_data.json":
+        return
+    # Public read-only proxy endpoints (Polymarket, ESPN, Pionex market data)
+    PUBLIC_PREFIXES = ("/api/poly/", "/api/nba/", "/api/tickers", "/api/klines", "/api/stream")
+    if any(request.path.startswith(p) for p in PUBLIC_PREFIXES):
+        return
+    # Sensitive endpoints require auth token
+    if request.path.startswith("/api/"):
+        if not check_auth():
+            return jsonify({"error": "unauthorized — pass ?token= or Authorization header"}), 401
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -55,6 +66,7 @@ _HTML_PAGES = {
     "/nba": "nba.html",
     "/btc": "btc.html",
     "/eth": "eth.html",
+    "/wti": "wti.html",
 }
 
 # Dynamically register all HTML page routes
@@ -341,11 +353,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Autobots dashboard server")
     parser.add_argument("--port", type=int, default=5000, help="Port to listen on (default: 5000)")
+    parser.add_argument("--public", action="store_true", help="Bind to 0.0.0.0 (default: localhost only)")
     args = parser.parse_args()
 
-    print(f"Dashboard running at: http://localhost:{args.port}")
+    host = "0.0.0.0" if args.public or os.getenv("PORT") else "127.0.0.1"
+    port = int(os.getenv("PORT", args.port))
+
+    print(f"Dashboard running at: http://{'localhost' if host == '127.0.0.1' else host}:{port}")
     print(f"  Serving index.html from: {ROOT_DIR / 'index.html'}")
     print(f"  Bot config: {TOML_PATH}")
     print(f"  State dir:  {STATE_DIR}")
-    port = int(os.getenv("PORT", args.port))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    print(f"  Auth: sensitive APIs require token (DASHBOARD_TOKEN env or default)")
+    print(f"  Bind: {host} ({'public' if host == '0.0.0.0' else 'local only — use --public for external access'})")
+    app.run(host=host, port=port, debug=False)

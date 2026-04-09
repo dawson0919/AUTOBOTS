@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 import httpx
 import numpy as np
 
-from utils import load_toml, BOT_DIR, STATE_DIR, TOML_PATH
+from utils import load_toml, file_lock, BOT_DIR, STATE_DIR, TOML_PATH
 
 PORTFOLIO_STATE = STATE_DIR / "portfolio.json"
 
@@ -444,8 +444,9 @@ def save_portfolio_state(
         "history": history,
     }
 
-    with open(PORTFOLIO_STATE, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
+    with file_lock(PORTFOLIO_STATE):
+        with open(PORTFOLIO_STATE, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
 
     log.info("Portfolio state saved to %s", PORTFOLIO_STATE)
 

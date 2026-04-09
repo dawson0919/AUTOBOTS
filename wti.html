@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<title>₿ BTC 預測指數 — Polymarket Signal</title>
+<title>WTI 原油預測指數 — Polymarket Signal</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#020617;--card:#0f172a;--card2:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--dim:#64748b;--bull:#22c55e;--bear:#ef4444;--neutral:#f59e0b;--accent:#6366f1;--accent2:#8b5cf6;--mono:'JetBrains Mono',monospace;--sans:'Noto Sans TC',sans-serif}
+:root{--bg:#020617;--card:#0f172a;--card2:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--dim:#64748b;--bull:#22c55e;--bear:#ef4444;--neutral:#f59e0b;--accent:#d97706;--accent2:#b45309;--mono:'JetBrains Mono',monospace;--sans:'Noto Sans TC',sans-serif}
 body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 100%);color:var(--text);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
 
 /* Header */
-.header{background:linear-gradient(135deg,var(--card) 0%,#1e1b4b 50%,var(--card) 100%);border-bottom:1px solid var(--border);padding:16px 20px;position:sticky;top:0;z-index:100}
+.header{background:linear-gradient(135deg,var(--card) 0%,#1c1917 50%,var(--card) 100%);border-bottom:1px solid var(--border);padding:16px 20px;position:sticky;top:0;z-index:100}
 .header-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.header h1{font-size:17px;font-weight:900;font-family:var(--mono);background:linear-gradient(135deg,var(--accent),var(--accent2),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+.header h1{font-size:17px;font-weight:900;font-family:var(--mono);background:linear-gradient(135deg,var(--accent),var(--accent2),#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
 .header .sub{font-size:11px;color:var(--dim);margin-top:2px}
 .btn{font-family:var(--mono);font-size:11px;border-radius:6px;padding:6px 12px;cursor:pointer;border:1px solid;transition:all 0.2s;background:none}
-.btn-refresh{background:rgba(99,102,241,0.1);border-color:var(--accent);color:#a5b4fc}
-.btn-refresh:hover{background:rgba(99,102,241,0.2)}
+.btn-refresh{background:rgba(217,119,6,0.1);border-color:var(--accent);color:#fbbf24}
+.btn-refresh:hover{background:rgba(217,119,6,0.2)}
 .btn-auto{border-color:var(--bull);color:var(--bull);background:rgba(34,197,94,0.1)}
 .btn-auto.off{border-color:var(--dim);color:var(--dim);background:rgba(100,116,139,0.1)}
 .meta{font-size:10px;color:#475569;margin-top:4px}
@@ -25,8 +25,8 @@ body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 10
 /* Nav */
 .nav{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .nav a{font-family:var(--mono);font-size:10px;color:var(--muted);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s;letter-spacing:0.5px}
-.nav a:hover{border-color:var(--accent);color:#a5b4fc}
-.nav a.active{border-color:var(--accent);color:var(--accent);background:rgba(99,102,241,0.1)}
+.nav a:hover{border-color:var(--accent);color:#fbbf24}
+.nav a.active{border-color:var(--accent);color:var(--accent);background:rgba(217,119,6,0.1)}
 
 /* Container */
 .container{max-width:800px;margin:0 auto;padding:16px}
@@ -77,7 +77,7 @@ body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 10
 .market-row{display:flex;justify-content:space-between;align-items:flex-start}
 .market-tags{display:flex;gap:6px;align-items:center;margin-bottom:6px}
 .tag{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#fff}
-.tag-updown{background:var(--accent)}.tag-range{background:var(--accent2)}.tag-above_below{background:#06b6d4}
+.tag-hit_high{background:#22c55e}.tag-hit_low{background:#ef4444}.tag-above_below{background:#06b6d4}.tag-range{background:var(--accent2)}.tag-other{background:var(--dim)}
 .tag-tf{background:transparent;border:1px solid #475569;color:var(--muted)}
 .market-q{font-size:13px;color:var(--text);line-height:1.4;font-family:var(--mono)}
 .market-price{font-size:22px;font-weight:800;font-family:var(--mono)}
@@ -89,7 +89,7 @@ body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 10
 .method{background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:16px;margin-top:20px;margin-bottom:30px}
 .method h3{color:var(--muted);font-size:13px;font-weight:700;font-family:var(--mono);margin-bottom:10px}
 .method p{font-size:12px;color:var(--dim);line-height:1.8;margin-bottom:6px}
-.method strong{color:#a5b4fc}.method .warn{color:var(--bear)}
+.method strong{color:#fbbf24}.method .warn{color:var(--bear)}
 
 /* Loading */
 .loading{text-align:center;padding:60px 20px;color:var(--dim);font-size:14px}
@@ -113,12 +113,12 @@ body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 10
 <a href="/eth" class="nav-tab" data-page="eth" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">ETH</a>
 <a href="/wti" class="nav-tab" data-page="wti" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">WTI</a>
 </nav>
-<script>document.querySelectorAll('.nav-tab').forEach(function(t){var p=location.pathname;var d=t.dataset.page;var active=(p==='/'&&d==='trading')||(p==='/'+d);if(active){t.style.borderBottomColor='#6366f1';t.style.color='#e2e8f0';t.style.background='rgba(99,102,241,0.1)'}});</script>
+<script>document.querySelectorAll('.nav-tab').forEach(function(t){var p=location.pathname;var d=t.dataset.page;var active=(p==='/'&&d==='trading')||(p==='/'+d);if(active){t.style.borderBottomColor='#d97706';t.style.color='#e2e8f0';t.style.background='rgba(217,119,6,0.1)'}});</script>
 <div class="header">
 <div class="header-top">
 <div>
-  <h1>₿ POLYMARKET × BTC</h1>
-  <div class="sub">基於 Polymarket 下注機率即時運算交易信號</div>
+  <h1>WTI CRUDE OIL SIGNAL</h1>
+  <div class="sub">Polymarket 原油價格預測市場即時信號</div>
 </div>
 <div style="display:flex;gap:6px">
   <button class="btn btn-auto" id="autoBtn" onclick="toggleAuto()">● 自動</button>
@@ -129,7 +129,9 @@ body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 10
   <a href="/">Trading</a>
   <a href="/polymarket">Polymarket</a>
   <a href="/nba">NBA</a>
-  <a href="/btc" class="active">BTC Signal</a>
+  <a href="/btc">BTC</a>
+  <a href="/eth">ETH</a>
+  <a href="/wti" class="active">WTI Signal</a>
 </div>
 <div class="meta" id="metaInfo">載入中...</div>
 </div>
@@ -149,17 +151,14 @@ const CORS_PROXY = 'https://corsproxy.io/?url=';
 
 async function fetchMarketsFromAPI(params) {
     const qs = new URLSearchParams(params).toString();
-    // Try Flask proxy first
     try {
         const r = await fetch('/api/poly/markets?' + qs);
         if (r.ok) return await r.json();
     } catch (e) {}
-    // Direct
     try {
         const r = await fetch(`${GAMMA_DIRECT}/markets?${qs}`);
         if (r.ok) return await r.json();
     } catch (e) {}
-    // CORS fallback
     const url = `${GAMMA_DIRECT}/markets?${qs}`;
     const r = await fetch(CORS_PROXY + encodeURIComponent(url));
     if (!r.ok) throw new Error('Polymarket API unavailable');
@@ -179,44 +178,42 @@ async function fetchEventsFromAPI(params) {
     return [];
 }
 
-async function fetchBTCMarkets() {
-    // Fetch from multiple sources in parallel for maximum coverage
+async function fetchWTIMarkets() {
     const [topMarkets, allEvents] = await Promise.all([
         fetchMarketsFromAPI({ limit: 200, active: true, order: 'volume24hr', ascending: false }),
         fetchEventsFromAPI({ limit: 100, active: true, order: 'volume24hr', ascending: false }),
     ]);
 
-    // Extract markets from events whose TITLE matches BTC/Bitcoin
-    const btcTitleRe = /\b(btc|bitcoin)\b/i;
+    // Extract markets from events that match WTI/oil
+    const wtiRe = /\b(wti|crude\s*oil|oil\s*price|brent)\b/i;
     const eventMarkets = [];
     (allEvents || []).forEach(ev => {
         const title = ev.title || '';
-        if (btcTitleRe.test(title)) {
+        if (wtiRe.test(title)) {
             (ev.markets || []).forEach(m => eventMarkets.push(m));
         }
     });
 
-    // Merge & deduplicate by id
+    // Merge & deduplicate
     const seen = new Set();
     const allMarkets = [];
-    [...topMarkets, ...eventMarkets].forEach(m => {
+    [...eventMarkets, ...topMarkets].forEach(m => {
         if (m.id && !seen.has(m.id)) { seen.add(m.id); allMarkets.push(m); }
     });
 
-    return filterBTC(allMarkets);
+    return filterWTI(allMarkets);
 }
 
-function filterBTC(markets) {
-    const btcRe = /\b(btc|bitcoin)\b/i;
-    const priceRe = /(price|above|below|up|down|range|reach|hit|break|hold|close|end|\$[\d,]+|↑|↓)/i;
-    const excludeRe = /(etf|approval|regulation|sec |dominance|halving)/i;
+function filterWTI(markets) {
+    const wtiRe = /\b(wti|crude\s*oil|oil)\b/i;
+    const excludeRe = /(olive oil|coconut oil|essential oil|cooking oil|snake oil)/i;
     return markets.filter(m => {
         const q = m.question || m.title || '';
-        return btcRe.test(q) && priceRe.test(q) && !excludeRe.test(q);
+        return wtiRe.test(q) && !excludeRe.test(q);
     });
 }
 
-// ── Signal Engine (client-side) ───────────────────────────────────────────
+// ── Signal Engine ─────────────────────────────────────────────────────────
 function parseMarket(m) {
     const q = (m.question || m.title || '').toLowerCase();
     let prices = [], outcomes = [];
@@ -230,47 +227,38 @@ function parseMarket(m) {
     let threshold = null, abDirection = null, timeframe = null;
 
     // Timeframe
-    if (q.includes('5 min') || q.includes('5min')) timeframe = '5m';
-    else if (q.includes('15 min') || q.includes('15min')) timeframe = '15m';
-    else if (q.includes('1 hour') || q.includes('1hr')) timeframe = '1h';
-    else if (q.includes('4 hour') || q.includes('4hr')) timeframe = '4h';
-    else if (q.includes('daily') || q.match(/(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d+/)) timeframe = 'daily';
-    else if (q.includes('weekly') || q.includes('week')) timeframe = 'weekly';
-    else if (q.includes('monthly') || q.includes('month')) timeframe = 'monthly';
+    if (q.includes('april') || q.includes('apr')) timeframe = 'APR';
+    else if (q.includes('may')) timeframe = 'MAY';
+    else if (q.includes('june') || q.includes('jun')) timeframe = 'JUN';
+    else if (q.includes('q2')) timeframe = 'Q2';
+    else if (q.includes('q3')) timeframe = 'Q3';
+    else if (q.includes('2026')) timeframe = '2026';
 
-    // Type classification — handle "reach $X" (bull) and "dip to $X" (bear) patterns
-    const reachMatch = q.match(/reach\s*\$?([\d,]+)/i);
-    const dipMatch = q.match(/dip\s+to\s*\$?([\d,]+)/i);
+    // Type: "hit (HIGH) $X" or "hit (LOW) $X"
+    const hitHighMatch = q.match(/hit\s*\(high\)\s*\$?([\d,]+)/i);
+    const hitLowMatch = q.match(/hit\s*\(low\)\s*\$?([\d,]+)/i);
 
-    if (q.includes('up or down') || q.includes('up/down')) {
-        type = 'updown';
-        const first = (outcomes[0] || '').toLowerCase();
-        if (first === 'up') direction = yesPrice >= 0.5 ? 'up' : 'down';
-        else direction = yesPrice >= 0.5 ? 'down' : 'up';
-    } else if (reachMatch) {
+    if (hitHighMatch) {
+        type = 'hit_high';
+        threshold = Number(hitHighMatch[1].replace(/,/g, ''));
+        abDirection = 'above';
+    } else if (hitLowMatch) {
+        type = 'hit_low';
+        threshold = Number(hitLowMatch[1].replace(/,/g, ''));
+        abDirection = 'below';
+    } else if (q.includes('above') || q.includes('below')) {
         type = 'above_below';
-        const val = Number(reachMatch[1].replace(/,/g, ''));
-        if (val >= 10000) { threshold = val; abDirection = 'above'; }
-    } else if (dipMatch) {
-        type = 'above_below';
-        const val = Number(dipMatch[1].replace(/,/g, ''));
-        if (val >= 10000) { threshold = val; abDirection = 'below'; }
+        const nm = q.match(/\$?([\d,]+)/);
+        if (nm) {
+            threshold = Number(nm[1].replace(/,/g, ''));
+            abDirection = q.includes('above') ? 'above' : 'below';
+        }
     } else if (q.match(/\d[\d,]*\s*-\s*\d[\d,]*/)) {
         const rm = q.match(/([\d,]+)\s*-\s*([\d,]+)/);
         if (rm) {
-            const lo = Number(rm[1].replace(/,/g, ''));
-            const hi = Number(rm[2].replace(/,/g, ''));
-            if (lo >= 10000 && hi >= 10000) { type = 'range'; rangeLow = lo; rangeHigh = hi; }
-        }
-    } else if (q.includes('above') || q.includes('below') || q.includes('↑') || q.includes('↓')) {
-        type = 'above_below';
-        const nm = q.match(/([\d,]+)/);
-        if (nm) {
-            const val = Number(nm[1].replace(/,/g, ''));
-            if (val >= 10000) {
-                threshold = val;
-                abDirection = (q.includes('above') || q.includes('↑')) ? 'above' : 'below';
-            }
+            rangeLow = Number(rm[1].replace(/,/g, ''));
+            rangeHigh = Number(rm[2].replace(/,/g, ''));
+            if (rangeLow > 0 && rangeHigh > 0) type = 'range';
         }
     }
 
@@ -283,89 +271,116 @@ function parseMarket(m) {
 
 function deriveSignal(markets) {
     if (!markets.length) return null;
-    const upDown = markets.filter(m => m.type === 'updown');
-    const priceRange = markets.filter(m => m.type === 'range');
+    const hitHigh = markets.filter(m => m.type === 'hit_high');
+    const hitLow = markets.filter(m => m.type === 'hit_low');
     const aboveBelow = markets.filter(m => m.type === 'above_below');
+    const priceRange = markets.filter(m => m.type === 'range');
 
-    // Direction bias
-    let bullScore = 0, bearScore = 0, dirWeight = 0;
-    upDown.forEach(m => {
+    // Derive expected price from hit_high markets (probabilistic)
+    // Each "hit $X" with YES prob p means the market thinks there's p% chance oil goes to X
+    let expectedHigh = null, expectedLow = null;
+    let bullScore = 0, bearScore = 0, totalWeight = 0;
+
+    // Hit high: higher YES price = more likely to reach that level = bullish
+    hitHigh.sort((a, b) => (a.threshold || 0) - (b.threshold || 0));
+    hitHigh.forEach(m => {
         const w = Math.log10(Math.max(m.volume, 1) + 1);
-        if (m.direction === 'up') bullScore += m.yesPrice * w;
-        else bearScore += m.yesPrice * w;
-        dirWeight += w;
+        bullScore += m.yesPrice * w;
+        totalWeight += w;
     });
-    const dirBias = dirWeight > 0 ? (bullScore - bearScore) / dirWeight : 0;
 
-    // Price range
-    let expectedPrice = null, topRange = null, rangeConf = 0;
+    // Hit low: higher YES price = more likely to drop to that level = bearish
+    hitLow.sort((a, b) => (b.threshold || 0) - (a.threshold || 0));
+    hitLow.forEach(m => {
+        const w = Math.log10(Math.max(m.volume, 1) + 1);
+        bearScore += m.yesPrice * w;
+        totalWeight += w;
+    });
+
+    // Above/below
+    aboveBelow.forEach(m => {
+        const w = Math.log10(Math.max(m.volume, 1) + 1);
+        if (m.abDirection === 'above') bullScore += m.yesPrice * w;
+        else bearScore += m.yesPrice * w;
+        totalWeight += w;
+    });
+
+    const dirBias = totalWeight > 0 ? (bullScore - bearScore) / totalWeight : 0;
+
+    // Find expected price from hit_high probability curve
+    // The price where YES prob crosses ~50% is the expected price
+    let expectedPrice = null;
+    if (hitHigh.length >= 2) {
+        // Find the transition point where YES drops below 50%
+        let below50 = hitHigh.filter(m => m.yesPrice < 0.5);
+        let above50 = hitHigh.filter(m => m.yesPrice >= 0.5);
+        if (below50.length > 0 && above50.length > 0) {
+            const lastAbove = above50[above50.length - 1];
+            const firstBelow = below50[0];
+            // Linear interpolation
+            const range = (lastAbove.threshold || 0) - (firstBelow.threshold || 0);
+            const pRange = lastAbove.yesPrice - firstBelow.yesPrice;
+            if (pRange > 0) {
+                expectedPrice = (lastAbove.threshold || 0) + range * (0.5 - lastAbove.yesPrice) / pRange;
+            }
+        }
+        if (!expectedPrice && above50.length > 0) {
+            expectedPrice = above50[above50.length - 1].threshold;
+        }
+    }
+
+    // Range analysis
+    let rangeBias = 0;
     if (priceRange.length > 0) {
-        let totalProb = 0, weightedMid = 0, maxProb = 0;
+        let totalProb = 0, weightedMid = 0;
         priceRange.forEach(m => {
             if (m.rangeLow != null && m.rangeHigh != null) {
                 const mid = (m.rangeLow + m.rangeHigh) / 2;
                 weightedMid += mid * m.yesPrice;
                 totalProb += m.yesPrice;
-                if (m.yesPrice > maxProb) {
-                    maxProb = m.yesPrice;
-                    topRange = { low: m.rangeLow, high: m.rangeHigh, prob: m.yesPrice };
-                }
             }
         });
-        if (totalProb > 0) { expectedPrice = weightedMid / totalProb; rangeConf = maxProb; }
-    }
-
-    // Above/below
-    let aboveScore = 0, belowScore = 0, abWeight = 0;
-    aboveBelow.forEach(m => {
-        const w = Math.log10(Math.max(m.volume, 1) + 1);
-        if (m.abDirection === 'above') aboveScore += m.yesPrice * w;
-        else belowScore += m.yesPrice * w;
-        abWeight += w;
-    });
-    const abBias = abWeight > 0 ? (aboveScore - belowScore) / abWeight : 0;
-
-    // Range bias
-    let rangeBias = 0;
-    if (expectedPrice && priceRange.length > 0) {
-        const lows = priceRange.filter(m => m.rangeLow != null).map(m => m.rangeLow);
-        const highs = priceRange.filter(m => m.rangeHigh != null).map(m => m.rangeHigh);
-        if (lows.length && highs.length) {
-            const medianPrice = (Math.min(...lows) + Math.max(...highs)) / 2;
-            if (medianPrice > 0) rangeBias = Math.max(-1, Math.min(1, (expectedPrice - medianPrice) / medianPrice * 5));
+        if (totalProb > 0 && expectedPrice) {
+            const rangeExpected = weightedMid / totalProb;
+            rangeBias = (rangeExpected - expectedPrice) / expectedPrice;
         }
     }
 
-    // Composite — adaptive weights based on available data
-    let wDir = 0.5, wRange = 0.3, wAb = 0.2;
-    if (upDown.length === 0 && aboveBelow.length > 0) {
-        wDir = 0; wAb = 0.7; wRange = 0.3;
-    } else if (upDown.length === 0 && priceRange.length > 0) {
-        wDir = 0; wRange = 0.7; wAb = 0.3;
-    }
-    let composite = wDir * dirBias + wRange * rangeBias + wAb * abBias;
+    // Composite signal
+    let composite = totalWeight > 0 ? dirBias : 0;
     composite = Math.max(-1, Math.min(1, composite));
 
-    const components = [Math.abs(dirBias), Math.abs(rangeBias), Math.abs(abBias)];
-    const nonzero = components.filter(c => c > 0.01);
-    const strength = nonzero.length > 0 ? Math.min(1, nonzero.reduce((a, b) => a + b, 0) / nonzero.length) : 0;
+    const strength = Math.min(1, Math.abs(composite) * 2);
 
     let label, action;
-    if (composite > 0.3) { label = 'STRONG BULL'; action = '積極做多'; }
-    else if (composite > 0.15) { label = 'BULL'; action = '輕倉做多'; }
-    else if (composite < -0.3) { label = 'STRONG BEAR'; action = '積極做空'; }
-    else if (composite < -0.15) { label = 'BEAR'; action = '輕倉做空'; }
-    else { label = 'NEUTRAL'; action = '觀望等待'; }
+    if (composite > 0.3) { label = 'STRONG BULL'; action = '看漲 — 油價上行風險高'; }
+    else if (composite > 0.15) { label = 'BULL'; action = '溫和看漲 — 偏多操作'; }
+    else if (composite < -0.3) { label = 'STRONG BEAR'; action = '看跌 — 油價下行壓力大'; }
+    else if (composite < -0.15) { label = 'BEAR'; action = '溫和看跌 — 偏空操作'; }
+    else { label = 'NEUTRAL'; action = '觀望 — 等方向明朗'; }
 
     const totalVolume = markets.reduce((s, m) => s + m.volume, 0);
 
+    // Key levels
+    const keyLevels = [];
+    hitHigh.forEach(m => {
+        if (m.threshold && m.yesPrice > 0.01 && m.yesPrice < 0.99) {
+            keyLevels.push({ price: m.threshold, prob: m.yesPrice, type: 'high' });
+        }
+    });
+    hitLow.forEach(m => {
+        if (m.threshold && m.yesPrice > 0.01 && m.yesPrice < 0.99) {
+            keyLevels.push({ price: m.threshold, prob: m.yesPrice, type: 'low' });
+        }
+    });
+
     return {
         composite: +composite.toFixed(4), label, strength: +strength.toFixed(4), action,
-        dirBias: +dirBias.toFixed(4), rangeBias: +rangeBias.toFixed(4), abBias: +abBias.toFixed(4),
-        topRange, expectedPrice: expectedPrice ? Math.round(expectedPrice) : null,
-        marketCount: markets.length, upDownCount: upDown.length,
-        rangeCount: priceRange.length, abCount: aboveBelow.length,
-        totalVolume: +totalVolume.toFixed(2),
+        dirBias: +dirBias.toFixed(4), rangeBias: +rangeBias.toFixed(4),
+        expectedPrice: expectedPrice ? Math.round(expectedPrice) : null,
+        marketCount: markets.length, hitHighCount: hitHigh.length,
+        hitLowCount: hitLow.length, abCount: aboveBelow.length, rangeCount: priceRange.length,
+        totalVolume: +totalVolume.toFixed(2), keyLevels,
         timestamp: new Date().toISOString()
     };
 }
@@ -373,8 +388,8 @@ function deriveSignal(markets) {
 // ── Fetch + Compute ───────────────────────────────────────────────────────
 async function fetchAll() {
     try {
-        const raw = await fetchBTCMarkets();
-        let markets = raw.map(parseMarket).filter(m => m.type !== 'other');
+        const raw = await fetchWTIMarkets();
+        let markets = raw.map(parseMarket);
         const signal = deriveSignal(markets);
 
         D.signal = signal;
@@ -385,7 +400,7 @@ async function fetchAll() {
         }
         D.lastUpdate = new Date().toISOString();
         render();
-        $('#metaInfo').textContent = `更新: ${new Date().toLocaleTimeString('zh-TW')} ｜ ${markets.length} BTC 市場 ｜ Polymarket Gamma API`;
+        $('#metaInfo').textContent = `更新: ${new Date().toLocaleTimeString('zh-TW')} | ${markets.length} WTI 市場 | Polymarket Gamma API`;
     } catch (e) {
         $('#metaInfo').textContent = '⚠ ' + e.message;
     }
@@ -434,24 +449,23 @@ function render() {
     <text x="230" y="155" fill="var(--bull)" font-size="11" font-family="var(--mono)">BULL</text>
     </svg>
     <div class="signal-label" style="color:${sc}">${sig.label}</div>
-    <div class="signal-meta">分數: ${(sig.composite * 100).toFixed(1)} ｜強度: ${(sig.strength * 100).toFixed(0)}%</div>
+    <div class="signal-meta">分數: ${(sig.composite * 100).toFixed(1)} | 強度: ${(sig.strength * 100).toFixed(0)}%</div>
     <div class="action-box" style="background:${sc}10;border:1px solid ${sc}30">
       <div class="action-text" style="color:${sc}">${sig.action}</div>
-      <div class="action-sub">${sig.marketCount} 個市場 ｜ ${usd(sig.totalVolume)}</div>
+      <div class="action-sub">${sig.marketCount} 個市場 | ${usd(sig.totalVolume)} 交易量</div>
     </div></div>`;
 
     // Stats
-    const bc = sig.dirBias > 0 ? 'var(--bull)' : sig.dirBias < 0 ? 'var(--bear)' : 'var(--neutral)';
     h += `<div class="stats">
     <div class="stat-card"><div class="stat-label">方向偏差</div>
-      <div class="stat-value" style="color:${bc}">${sig.dirBias > 0 ? '+' : ''}${(sig.dirBias * 100).toFixed(1)}</div>
+      <div class="stat-value" style="color:${sig.dirBias > 0 ? 'var(--bull)' : sig.dirBias < 0 ? 'var(--bear)' : 'var(--neutral)'}">${sig.dirBias > 0 ? '+' : ''}${(sig.dirBias * 100).toFixed(1)}</div>
       <div class="stat-sub">${sig.dirBias > 0 ? '偏多' : sig.dirBias < 0 ? '偏空' : '平衡'}</div></div>
+    <div class="stat-card"><div class="stat-label">預期價格</div>
+      <div class="stat-value" style="color:var(--accent)">${sig.expectedPrice ? '$' + sig.expectedPrice : '—'}</div>
+      <div class="stat-sub">機率曲線估算</div></div>
     <div class="stat-card"><div class="stat-label">活躍市場</div>
       <div class="stat-value" style="color:var(--accent)">${sig.marketCount}</div>
-      <div class="stat-sub">漲${sig.upDownCount} 區${sig.rangeCount} 突${sig.abCount}</div></div>
-    <div class="stat-card"><div class="stat-label">信號強度</div>
-      <div class="stat-value" style="color:${sig.strength > 0.5 ? 'var(--bull)' : 'var(--neutral)'}">${(sig.strength * 100).toFixed(0)}%</div>
-      <div class="stat-sub">${sig.strength > 0.5 ? '高度可信' : '參考用'}</div></div></div>`;
+      <div class="stat-sub">高${sig.hitHighCount} 低${sig.hitLowCount} 突${sig.abCount}</div></div></div>`;
 
     // Signal History
     if (history.length > 1) {
@@ -463,59 +477,77 @@ function render() {
         h += `<div class="history-card"><div class="dist-title">信號趨勢 (${history.length}筆)</div><div class="history-chart">${hb}</div></div>`;
     }
 
-    // Price Range Distribution
-    const rng = markets.filter(m => m.type === 'range').sort((a, b) => (a.rangeLow || 0) - (b.rangeLow || 0));
-    if (rng.length > 0) {
-        const mx = Math.max(...rng.map(r => r.yesPrice), 0.01);
+    // Key Price Levels Chart
+    const hitHigh = markets.filter(m => m.type === 'hit_high').sort((a, b) => (a.threshold || 0) - (b.threshold || 0));
+    const hitLow = markets.filter(m => m.type === 'hit_low').sort((a, b) => (a.threshold || 0) - (b.threshold || 0));
+
+    if (hitHigh.length > 0) {
+        const mx = Math.max(...hitHigh.map(r => r.yesPrice), 0.01);
         let rb = '';
-        rng.forEach(r => {
+        hitHigh.forEach(r => {
             const hp = (r.yesPrice / mx) * 100;
             const im = r.yesPrice === mx;
-            const co = im ? 'linear-gradient(180deg,var(--bull),#16a34a)' : 'linear-gradient(180deg,var(--accent),#4f46e5)';
-            const sh = im ? 'box-shadow:0 0 12px rgba(34,197,94,0.3);' : '';
+            const prob50 = Math.abs(r.yesPrice - 0.5) < 0.15;
+            const co = r.yesPrice > 0.5 ? 'linear-gradient(180deg,var(--bull),#16a34a)' :
+                       prob50 ? 'linear-gradient(180deg,var(--neutral),#d97706)' :
+                       'linear-gradient(180deg,var(--bear),#dc2626)';
             rb += `<div class="dist-col">
-              <div class="dist-pct" style="color:${im ? 'var(--bull)' : 'var(--muted)'};font-weight:${im ? 700 : 400}">${pct(r.yesPrice)}</div>
-              <div class="dist-bar" style="height:${hp}%;background:${co};${sh}"></div>
-              <div class="dist-range">${r.rangeLow ? (r.rangeLow / 1000).toFixed(0) : '?'}k-${r.rangeHigh ? (r.rangeHigh / 1000).toFixed(0) : '?'}k</div>
+              <div class="dist-pct" style="color:${r.yesPrice > 0.5 ? 'var(--bull)' : r.yesPrice > 0.3 ? 'var(--neutral)' : 'var(--bear)'};font-weight:${prob50 ? 700 : 400}">${pct(r.yesPrice)}</div>
+              <div class="dist-bar" style="height:${hp}%;background:${co}"></div>
+              <div class="dist-range">$${r.threshold}</div>
             </div>`;
         });
-        h += `<div class="dist-card"><div class="dist-title">價格區間機率分佈</div><div class="dist-bars">${rb}</div></div>`;
+        h += `<div class="dist-card"><div class="dist-title">價格上行機率 (HIGH)</div><div class="dist-bars">${rb}</div></div>`;
+    }
+
+    if (hitLow.length > 0) {
+        const mx = Math.max(...hitLow.map(r => r.yesPrice), 0.01);
+        let rb = '';
+        hitLow.forEach(r => {
+            const hp = (r.yesPrice / mx) * 100;
+            const co = r.yesPrice > 0.5 ? 'linear-gradient(180deg,var(--bear),#991b1b)' :
+                       'linear-gradient(180deg,var(--neutral),#d97706)';
+            rb += `<div class="dist-col">
+              <div class="dist-pct" style="color:${r.yesPrice > 0.5 ? 'var(--bear)' : 'var(--neutral)'}">${pct(r.yesPrice)}</div>
+              <div class="dist-bar" style="height:${hp}%;background:${co}"></div>
+              <div class="dist-range">$${r.threshold}</div>
+            </div>`;
+        });
+        h += `<div class="dist-card"><div class="dist-title">價格下行機率 (LOW)</div><div class="dist-bars">${rb}</div></div>`;
     }
 
     // Strategy Suggestions
     const c = sig.composite;
     let st = [];
     if (c > 0.3) {
-        st.push({ n: '積極做多', d: '多方機率偏高', r: '低', rc: 'var(--bull)' });
-        st.push({ n: '買看漲期權', d: '槓桿放大', r: '中', rc: 'var(--neutral)' });
+        st.push({ n: '做多原油', d: '上行機率偏高', r: '中', rc: 'var(--bull)' });
+        st.push({ n: '買入USO/UCO', d: '原油ETF做多', r: '低', rc: 'var(--bull)' });
     } else if (c > 0.15) {
-        st.push({ n: '輕倉做多', d: '溫和偏多', r: '低', rc: 'var(--bull)' });
+        st.push({ n: '輕倉做多', d: '溫和看漲', r: '低', rc: 'var(--bull)' });
     } else if (c < -0.3) {
-        st.push({ n: '積極做空', d: '空方佔優', r: '中', rc: 'var(--neutral)' });
-        st.push({ n: '減持現貨', d: '降低敞口', r: '低', rc: 'var(--bull)' });
+        st.push({ n: '做空原油', d: '下行壓力大', r: '中', rc: 'var(--neutral)' });
+        st.push({ n: '買入SCO', d: '原油反向ETF', r: '低', rc: 'var(--bull)' });
     } else if (c < -0.15) {
-        st.push({ n: '輕倉做空', d: '溫和偏空', r: '低', rc: 'var(--bull)' });
+        st.push({ n: '輕倉做空', d: '溫和看跌', r: '低', rc: 'var(--bull)' });
     } else {
-        st.push({ n: '區間操作', d: '高拋低吸', r: '低', rc: 'var(--bull)' });
         st.push({ n: '觀望等待', d: '等方向明朗', r: '無', rc: 'var(--dim)' });
-    }
-    if (sig.topRange) {
-        st.push({ n: `目標 $${(sig.topRange.low / 1000).toFixed(0)}k-$${(sig.topRange.high / 1000).toFixed(0)}k`, d: `最高機率 (${pct(sig.topRange.prob)})`, r: '參考', rc: 'var(--accent2)' });
+        st.push({ n: '區間操作', d: '高拋低吸', r: '低', rc: 'var(--bull)' });
     }
     if (sig.expectedPrice) {
-        st.push({ n: `預期價格 $${sig.expectedPrice.toLocaleString()}`, d: '機率加權中位數', r: '參考', rc: 'var(--accent)' });
+        st.push({ n: `預期價格 $${sig.expectedPrice}`, d: '機率曲線 50% 交叉點', r: '參考', rc: 'var(--accent)' });
     }
     h += `<div class="dist-card"><div class="dist-title">建議策略</div>${st.map(s =>
         `<div class="strategy-item"><div><div class="strat-name">${s.n}</div><div class="strat-desc">${s.d}</div></div><span class="strat-risk" style="color:${s.rc};border:1px solid ${s.rc}40">風險:${s.r}</span></div>`
     ).join('')}</div>`;
 
     // Filters
-    const cn = { all: markets.length, updown: 0, range: 0, above_below: 0 };
-    const lb = { all: '全部', updown: '漲跌', range: '區間', above_below: '突破' };
-    markets.forEach(m => { if (cn[m.type] !== undefined) cn[m.type]++; });
+    const typeLabels = { all: '全部', hit_high: '上行', hit_low: '下行', above_below: '突破', range: '區間', other: '其他' };
+    const cn = { all: markets.length };
+    markets.forEach(m => { cn[m.type] = (cn[m.type] || 0) + 1; });
     h += '<div class="filters">';
-    for (const k of ['all', 'updown', 'range', 'above_below']) {
-        h += `<button class="filter-btn${curFilter === k ? ' active' : ''}" onclick="setF('${k}')">${lb[k]}(${cn[k]})</button>`;
+    for (const k of ['all', 'hit_high', 'hit_low', 'above_below', 'range']) {
+        if (k !== 'all' && !cn[k]) continue;
+        h += `<button class="filter-btn${curFilter === k ? ' active' : ''}" onclick="setF('${k}')">${typeLabels[k] || k}(${cn[k] || 0})</button>`;
     }
     h += '</div>';
 
@@ -527,7 +559,7 @@ function render() {
         h += `<div class="market-card">
           <div class="market-row">
             <div style="flex:1">
-              <div class="market-tags"><span class="tag tag-${m.type}">${lb[m.type] || m.type}</span>${tf}</div>
+              <div class="market-tags"><span class="tag tag-${m.type}">${typeLabels[m.type] || m.type}</span>${tf}</div>
               <div class="market-q">${m.question}</div>
             </div>
             <div style="text-align:right;min-width:90px">
@@ -542,12 +574,11 @@ function render() {
 
     // Methodology
     h += `<div class="method"><h3>系統方法論</h3>
-    <p><strong>數據源：</strong>Polymarket Gamma API 每30秒自動刷新</p>
-    <p><strong>信號：</strong>方向偏差(50%) + 區間分佈(30%) + 突破機率(20%) 三維加權運算</p>
+    <p><strong>數據源：</strong>Polymarket Gamma API (Events + Markets) 每30秒自動刷新</p>
+    <p><strong>信號：</strong>上行機率(HIGH) vs 下行機率(LOW) 加權運算方向偏差</p>
+    <p><strong>預期價格：</strong>從 hit HIGH 市場的機率曲線中找 50% 交叉點估算</p>
     <p><strong>權重：</strong>交易量 log10 加權，高交易量市場影響力更大</p>
-    <p><strong>分類：</strong>漲跌(up/down) = 方向判斷 ｜ 區間(range) = 價格預測 ｜ 突破(above/below) = 關鍵位判斷</p>
-    <p><strong>強度：</strong>各維度非零分量的平均絕對值，>50% 為高度可信</p>
-    <p><strong class="warn">風險提示：</strong>本系統僅供參考，不構成投資建議。Polymarket 為預測市場，流動性和參與度會影響信號品質。</p></div>`;
+    <p><strong class="warn">風險提示：</strong>本系統僅供參考，不構成投資建議。原油價格受地緣政治、OPEC決策、全球需求等多重因素影響。</p></div>`;
 
     $('#app').innerHTML = h;
 }

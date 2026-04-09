@@ -1264,6 +1264,17 @@ def main():
                     bt_results["star3"] += 1
                     if win: bt_results["star3_correct"] += 1
 
+                # Compute predicted total for backtest entry
+                bt_actual_total = g.get("away_score", 0) + g.get("home_score", 0)
+                bt_pred_total = None
+                h_st = predictor.team_stats.get(home, {})
+                a_st = predictor.team_stats.get(away, {})
+                if h_st and a_st:
+                    _ae = (a_st.get("ppg", 110) + h_st.get("oppg", 110)) / 2
+                    _he = (h_st.get("ppg", 110) + a_st.get("oppg", 110)) / 2
+                    _ap = (a_st.get("ppg",110)+a_st.get("oppg",110)+h_st.get("ppg",110)+h_st.get("oppg",110))/4
+                    bt_pred_total = round(_ae + _he + (_ap - 113.0) * 0.5, 1)
+
                 bt_results["recent"].append({
                     "date": g["date"],
                     "away": away, "home": home,
@@ -1271,6 +1282,8 @@ def main():
                     "pick": pick, "winner": g["winner"],
                     "correct": win,
                     "score": f'{g.get("away_score",0)}-{g.get("home_score",0)}',
+                    "pred_total": bt_pred_total,
+                    "actual_total": bt_actual_total,
                 })
 
                 bt_last[home] = g["date"]
