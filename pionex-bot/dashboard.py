@@ -347,4 +347,5 @@ if __name__ == "__main__":
     print(f"  Serving index.html from: {ROOT_DIR / 'index.html'}")
     print(f"  Bot config: {TOML_PATH}")
     print(f"  State dir:  {STATE_DIR}")
-    app.run(host="127.0.0.1", port=args.port, debug=False)
+    port = int(os.getenv("PORT", args.port))
+    app.run(host="0.0.0.0", port=port, debug=False)
