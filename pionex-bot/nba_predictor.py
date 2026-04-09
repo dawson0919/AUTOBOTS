@@ -16,7 +16,7 @@ import argparse
 import json
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -133,11 +133,14 @@ def _http() -> httpx.Client:
     return httpx.Client(timeout=15, follow_redirects=True)
 
 
-def fetch_espn_scoreboard() -> list[dict]:
-    """Fetch today's NBA games from ESPN."""
+def fetch_espn_scoreboard(date_str: str | None = None) -> list[dict]:
+    """Fetch NBA games from ESPN. date_str format: YYYYMMDD (None=today)."""
     try:
+        url = f"{ESPN_BASE}/scoreboard"
+        if date_str:
+            url += f"?dates={date_str}"
         with _http() as c:
-            r = c.get(f"{ESPN_BASE}/scoreboard")
+            r = c.get(url)
             if r.status_code != 200:
                 return []
             data = r.json()
@@ -164,6 +167,32 @@ def fetch_espn_scoreboard() -> list[dict]:
             "date": event.get("date", ""),
         })
     return games
+
+
+def fetch_espn_injuries() -> dict[str, list[dict]]:
+    """Fetch NBA injury report from ESPN. Returns {team_name: [{name, status, detail}]}."""
+    try:
+        with _http() as c:
+            r = c.get(f"{ESPN_BASE.rsplit('/scoreboard', 1)[0]}/injuries")
+            if r.status_code != 200:
+                return {}
+            data = r.json()
+    except Exception:
+        return {}
+
+    result: dict[str, list[dict]] = {}
+    for team_data in data.get("injuries", []):
+        team_name = team_data.get("displayName", "")
+        injuries = []
+        for inj in team_data.get("injuries", []):
+            athlete = inj.get("athlete", {})
+            name = athlete.get("displayName", "Unknown")
+            status = inj.get("status", "")
+            short = inj.get("shortComment", "")
+            injuries.append({"name": name, "status": status, "detail": short})
+        if injuries:
+            result[team_name] = injuries
+    return result
 
 
 def fetch_espn_standings() -> dict[str, dict]:
@@ -1127,8 +1156,23 @@ def main():
         import json as _json
         output = {"games": [], "edges": [], "elo_teams": {}}
 
-        # Today's games
-        today_games = fetch_espn_scoreboard()
+        # Fetch injury report
+        injury_map = fetch_espn_injuries()
+
+        # Today's games — merge default scoreboard + explicit ET date query
+        # ESPN default scoreboard may miss late games on split-day boundaries
+        _et = timezone(timedelta(hours=-4))
+        et_today_str = datetime.now(_et).strftime("%Y%m%d")
+        sb_default = fetch_espn_scoreboard()
+        sb_dated = fetch_espn_scoreboard(et_today_str)
+        # Merge & deduplicate by home+away
+        seen_matchups = set()
+        today_games = []
+        for g in sb_default + sb_dated:
+            key = g["home"] + "|" + g["away"]
+            if key not in seen_matchups:
+                seen_matchups.add(key)
+                today_games.append(g)
         standings = fetch_espn_standings()
         predictor.team_stats = standings
 
@@ -1177,6 +1221,11 @@ def main():
                 sp_margin = spread_model.predict(home, away, standings, predictor.elo, rest_h, rest_a)
                 game_entry["pred_spread"] = round(sp_margin, 1)
 
+            # Fallback: use Elo-based margin if spread model unavailable
+            if "pred_spread" not in game_entry:
+                elo_margin = predictor.predict_margin(home, away, is_home=True, b2b_a=b2b_home, b2b_b=b2b_away)
+                game_entry["pred_spread"] = round(elo_margin, 1)
+
             # Total points prediction
             h_stats = standings.get(home, {})
             a_stats = standings.get(away, {})
@@ -1196,7 +1245,113 @@ def main():
             game_entry["away_expected"] = round(away_expected, 1)
             game_entry["home_expected"] = round(home_expected, 1)
 
+            # Attach injury data
+            home_inj = injury_map.get(home, [])
+            away_inj = injury_map.get(away, [])
+            home_out = [p for p in home_inj if p["status"] == "Out"]
+            away_out = [p for p in away_inj if p["status"] == "Out"]
+            home_dtd = [p for p in home_inj if p["status"] in ("Day-To-Day", "Questionable")]
+            away_dtd = [p for p in away_inj if p["status"] in ("Day-To-Day", "Questionable")]
+            game_entry["injuries"] = {
+                "home_out": [{"name": p["name"], "detail": p["detail"]} for p in home_out],
+                "away_out": [{"name": p["name"], "detail": p["detail"]} for p in away_out],
+                "home_gtd": [{"name": p["name"], "detail": p["detail"]} for p in home_dtd],
+                "away_gtd": [{"name": p["name"], "detail": p["detail"]} for p in away_dtd],
+            }
+
             output["games"].append(game_entry)
+
+        # Next Games — split by Taiwan date boundary
+        # Taiwan midnight = UTC 16:00. Games after UTC 16:00 today = tomorrow in Taiwan.
+        _tw = timezone(timedelta(hours=8))
+        tw_today = datetime.now(_tw).strftime("%Y-%m-%d")
+        tw_tomorrow = (datetime.now(_tw) + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # Separate today's output into TW-today and TW-next
+        tw_today_games = []  # games already in output["games"]
+        tw_next_entries = []  # game entries for next section
+
+        for ge in list(output["games"]):
+            # Find original ESPN game to get UTC time
+            orig = next((g for g in today_games if g["home"] == ge["home"] and g["away"] == ge["away"]), None)
+            game_date_str = orig.get("date", "") if orig else ""
+            tw_date = ""
+            if game_date_str:
+                try:
+                    utc_time = datetime.fromisoformat(game_date_str.replace("Z", "+00:00"))
+                    tw_time = utc_time.astimezone(_tw)
+                    tw_date = tw_time.strftime("%Y-%m-%d")
+                except Exception:
+                    pass
+
+            is_finished = ge.get("status", "") in ("Final", "Final/OT")
+            if tw_date > tw_today and not is_finished:
+                tw_next_entries.append(ge)
+            else:
+                tw_today_games.append(ge)
+
+        output["games"] = tw_today_games
+
+        # Also fetch ESPN next day for additional next games
+        _et = timezone(timedelta(hours=-4))
+        et_today = datetime.now(_et).strftime("%Y%m%d")
+        # Update last_game with today's games for B2B detection
+        for g in today_games:
+            for _tn in (g["home"], g["away"]):
+                if _tn not in last_game or et_today > last_game.get(_tn, ""):
+                    last_game[_tn] = et_today
+
+        # If all TW-today games done and no TW-next games yet, scan ahead
+        all_tw_today_done = all(
+            ge.get("status", "") in ("Final", "Final/OT", "Postponed", "Canceled", "")
+            for ge in tw_today_games
+        ) if tw_today_games else True
+
+        if not tw_next_entries and all_tw_today_done:
+            base = datetime.strptime(et_today, "%Y%m%d")
+            for offset in range(1, 4):
+                check = base + timedelta(days=offset)
+                check_str = check.strftime("%Y%m%d")
+                fetched = fetch_espn_scoreboard(check_str)
+                if fetched:
+                    # Process these games through prediction
+                    for g in fetched:
+                        home, away = g["home"], g["away"]
+                        b2b_h = (home in last_game and last_game[home] == et_today)
+                        b2b_a = (away in last_game and last_game[away] == et_today)
+                        rest_h = calc_rest_days(home, last_game)
+                        rest_a = calc_rest_days(away, last_game)
+                        prob = predictor.predict(home, away, is_home=True, b2b_a=b2b_h, b2b_b=b2b_a)
+                        te = {
+                            "home": home, "away": away,
+                            "home_record": g.get("home_record", ""),
+                            "away_record": g.get("away_record", ""),
+                            "home_prob": round(prob * 100, 1),
+                            "away_prob": round((1 - prob) * 100, 1),
+                            "home_elo": round(predictor.elo.ratings.get(home, 1500)),
+                            "away_elo": round(predictor.elo.ratings.get(away, 1500)),
+                            "status": "Scheduled",
+                            "b2b_home": b2b_h, "b2b_away": b2b_a,
+                            "rest_home": rest_h, "rest_away": rest_a,
+                        }
+                        if has_spread:
+                            sp = spread_model.predict(home, away, standings, predictor.elo, rest_h, rest_a)
+                            te["pred_spread"] = round(sp, 1)
+                        h_st = standings.get(home, {}); a_st = standings.get(away, {})
+                        ae = (a_st.get("ppg",110) + h_st.get("oppg",110)) / 2
+                        he = (h_st.get("ppg",110) + a_st.get("oppg",110)) / 2
+                        ap = (a_st.get("ppg",110)+a_st.get("oppg",110)+h_st.get("ppg",110)+h_st.get("oppg",110))/4
+                        pt = ae + he + (ap - 113.0) * 0.5
+                        te["pred_total"] = round(pt, 1)
+                        te["away_expected"] = round(ae, 1)
+                        te["home_expected"] = round(he, 1)
+                        tw_next_entries.append(te)
+                    break
+
+        next_date_label = tw_tomorrow
+
+        output["next_games"] = tw_next_entries
+        output["next_games_date"] = next_date_label
 
         # Edge detection
         nba_markets = fetch_polymarket_nba()

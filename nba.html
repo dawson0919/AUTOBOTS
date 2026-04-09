@@ -308,6 +308,7 @@
 <a href="/btc" class="nav-tab" data-page="btc" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">BTC</a>
 <a href="/eth" class="nav-tab" data-page="eth" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">ETH</a>
 <a href="/wti" class="nav-tab" data-page="wti" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">WTI</a>
+<a href="/mlb" class="nav-tab" data-page="mlb" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">MLB</a>
 </nav>
 <script>document.querySelectorAll('.nav-tab').forEach(function(t){var p=location.pathname;var d=t.dataset.page;var active=(p==='/'&&d==='trading')||(p==='/'+d);if(active){t.style.borderBottomColor='#6366f1';t.style.color='#e2e8f0';t.style.background='rgba(99,102,241,0.1)'}});</script>
 
@@ -355,7 +356,7 @@
 
   <!-- SECTION 1: TODAY'S GAMES -->
   <section>
-    <div class="section-title">Today's Games</div>
+    <div class="section-title">Today's Games <span id="today-date-label" style="font-weight:400;color:var(--muted);font-size:10px;margin-left:8px;"></span></div>
 
     <!-- Win-rate KPI row -->
     <div id="wr-kpi-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
@@ -396,6 +397,14 @@
         <div class="skel-bar"></div>
         <div class="skel-line med"></div>
       </div>
+    </div>
+  </section>
+
+  <!-- SECTION: NEXT GAMES -->
+  <section id="next-games-section" style="display:none;">
+    <div class="section-title">🎯 Next Games — 運彩預測 <span id="next-games-date" style="font-weight:400;color:var(--muted);font-size:10px;margin-left:8px;"></span></div>
+    <div class="game-grid" id="next-games-grid">
+      <div style="color:var(--muted);font-family:'Share Tech Mono';font-size:11px;padding:12px;">Loading...</div>
     </div>
   </section>
 
@@ -723,15 +732,140 @@ function renderGames(games) {
           <span style="color:#64748b;">${g.away_expected ? abbrevTeam(g.away) + ' ' + g.away_expected.toFixed(0) + ' — ' + abbrevTeam(g.home) + ' ' + g.home_expected.toFixed(0) : ''}</span>
         </div>` : ''}
         ${resultHTML}
+        ${renderInjuryBadge(g)}
       </a>
     `;
   }).join('');
+}
+
+function renderInjuryBadge(g) {
+  const inj = g.injuries;
+  if (!inj) return '';
+  const ho = inj.home_out || [], ao = inj.away_out || [];
+  const hg = inj.home_gtd || [], ag = inj.away_gtd || [];
+  if (ho.length === 0 && ao.length === 0 && hg.length === 0 && ag.length === 0) return '';
+
+  let html = '<div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:#fefce8;border:1px solid #fde68a;font-family:Share Tech Mono;font-size:10px;line-height:1.6;">';
+  html += '<div style="font-weight:700;color:#92400e;margin-bottom:4px;">🏥 傷兵報告</div>';
+
+  function renderTeamInj(team, out, gtd) {
+    let s = '';
+    if (out.length > 0) {
+      s += '<div style="color:#991b1b;">' + team + ' ❌ OUT: <b>' + out.map(p => p.name).join(', ') + '</b></div>';
+    }
+    if (gtd.length > 0) {
+      s += '<div style="color:#92400e;">' + team + ' ⚠️ GTD: ' + gtd.map(p => p.name).join(', ') + '</div>';
+    }
+    return s;
+  }
+
+  html += renderTeamInj(abbrevTeam(g.away), ao, ag);
+  html += renderTeamInj(abbrevTeam(g.home), ho, hg);
+  html += '</div>';
+  return html;
 }
 
 function abbrevTeam(name) {
   // Return last word (city removed) or first 10 chars
   const parts = name.split(' ');
   return parts.length > 1 ? parts[parts.length - 1] : name.substring(0, 10);
+}
+
+// ─── Render: Next Games ──────────────────────────────────────────
+function renderNextGames(games, dateLabel) {
+  const section = document.getElementById('next-games-section');
+  const grid = document.getElementById('next-games-grid');
+  if (!games || games.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  const dateEl = document.getElementById('next-games-date');
+  if (dateEl && dateLabel) {
+    const parts = dateLabel.split('-');
+    dateEl.textContent = '(' + parts[1] + '/' + parts[2] + ' — ' + games.length + ' 場)';
+  }
+  grid.innerHTML = games.map(g => {
+    const homeWin = g.home_prob > g.away_prob;
+    const winnerName = homeWin ? g.home : g.away;
+    const conf = Math.max(g.home_prob, g.away_prob);
+    const confColor = conf >= 70 ? '#059669' : conf >= 60 ? '#0066cc' : '#64748b';
+
+    // Stars rating based on confidence + elo diff
+    const eloDiff = Math.abs((g.home_elo || 1500) - (g.away_elo || 1500));
+    let stars = 1;
+    if (conf >= 65 && eloDiff >= 50) stars = 2;
+    if (conf >= 72 && eloDiff >= 80) stars = 3;
+    const starStr = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+
+    // B2B warnings
+    let b2bHTML = '';
+    if (g.b2b_home) b2bHTML += `<span style="font-family:'Share Tech Mono';font-size:9px;color:#d97706;background:#fef3c7;padding:1px 6px;border-radius:3px;margin-right:4px;">⚠ ${abbrevTeam(g.home)} B2B</span>`;
+    if (g.b2b_away) b2bHTML += `<span style="font-family:'Share Tech Mono';font-size:9px;color:#d97706;background:#fef3c7;padding:1px 6px;border-radius:3px;">⚠ ${abbrevTeam(g.away)} B2B</span>`;
+
+    const awayBoxClass = !homeWin ? 'winner' : 'loser';
+    const homeBoxClass = homeWin ? 'winner' : 'loser';
+
+    return `
+      <div class="game-card" style="cursor:default;border-left:3px solid ${confColor};">
+        <div class="game-status-row">
+          <span class="game-status scheduled">📅 NEXT</span>
+          <span style="font-family:'Share Tech Mono';font-size:13px;color:${confColor};font-weight:700;">${starStr}</span>
+        </div>
+        <div class="matchup">
+          <div class="team-side">
+            <div class="team-name">${g.away}</div>
+            <div class="team-record">${g.away_record || ''}</div>
+          </div>
+          <div class="vs-badge">@</div>
+          <div class="team-side">
+            <div class="team-name">${g.home}</div>
+            <div class="team-record">${g.home_record || ''}</div>
+          </div>
+        </div>
+
+        <div class="prob-boxes">
+          <div class="prob-box ${awayBoxClass}">
+            <div class="prob-pct">${g.away_prob.toFixed(1)}%</div>
+            <div class="prob-label">${abbrevTeam(g.away)}</div>
+          </div>
+          <div class="prob-box-vs">VS</div>
+          <div class="prob-box ${homeBoxClass}">
+            <div class="prob-pct">${g.home_prob.toFixed(1)}%</div>
+            <div class="prob-label">${abbrevTeam(g.home)}</div>
+          </div>
+        </div>
+
+        <div class="prob-bar-wrap">
+          <div class="prob-bar">
+            <div class="prob-away" style="width:${g.away_prob}%">${g.away_prob >= 15 ? g.away_prob.toFixed(0) + '%' : ''}</div>
+            <div class="prob-home" style="width:${g.home_prob}%">${g.home_prob >= 15 ? g.home_prob.toFixed(0) + '%' : ''}</div>
+          </div>
+        </div>
+
+        <div class="elo-row">
+          <div class="elo-val"><span>Elo:</span><span class="elo-num">${g.away_elo || '—'}</span></div>
+          <div style="font-size:10px;color:var(--muted);">★ Elo Rating</div>
+          <div class="elo-val"><span>Elo:</span><span class="elo-num">${g.home_elo || '—'}</span></div>
+        </div>
+
+        <div class="prediction-label">
+          預測 ${winnerName.split(' ').pop().toUpperCase()} 勝出 +${Math.abs(g.pred_spread || 0).toFixed(1)} pts
+        </div>
+        ${g.pred_total ? '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-top:4px;border-radius:4px;background:#eff6ff;border:1px solid #93c5fd;font-family:Share Tech Mono;font-size:10px;"><span style="color:#1e40af;">預測總分: <b style="font-size:13px;">' + g.pred_total.toFixed(1) + '</b></span><span style="color:#64748b;">' + (g.away_expected ? abbrevTeam(g.away) + ' ' + g.away_expected.toFixed(0) + ' — ' + abbrevTeam(g.home) + ' ' + g.home_expected.toFixed(0) : '') + '</span></div>' : ''}
+        ${b2bHTML ? '<div style="margin-top:6px;">' + b2bHTML + '</div>' : ''}
+
+        <div style="text-align:center;padding:6px;margin-top:8px;border-radius:6px;
+          background:${conf >= 68 ? '#ecfdf5' : conf >= 58 ? '#eff6ff' : '#f8fafc'};
+          border:1px solid ${conf >= 68 ? '#6ee7b7' : conf >= 58 ? '#93c5fd' : '#e2e8f0'};
+          font-family:'Share Tech Mono';font-size:11px;color:${conf >= 68 ? '#065f46' : conf >= 58 ? '#1e40af' : '#64748b'};">
+          ${conf >= 68 ? '🔥 高信心推薦' : conf >= 58 ? '📊 中等信心' : '📋 低信心 — 觀望'}
+          <span style="font-weight:700;margin-left:4px;">(${conf.toFixed(1)}%)</span>
+        </div>
+        ${renderInjuryBadge(g)}
+      </div>
+    `;
+  }).join('');
 }
 
 // ─── Render: Elo Rankings ─────────────────────────────────────────
@@ -1318,10 +1452,14 @@ async function loadNBA() {
     window._loadedGames = data.games || [];
     window._loadedBacktest = data.backtest || null;
     renderGames(window._loadedGames);
+    // Show today's date label
+    const tdl = document.getElementById('today-date-label');
+    if (tdl) { const now = new Date(); tdl.textContent = '(' + (now.getMonth()+1) + '/' + now.getDate() + ')'; }
     renderEloRankings(data.elo_teams || {});
     renderTWLottery(window._loadedGames);
     renderBacktest(data.backtest);
     renderWinRates(data.backtest, window._loadedGames);
+    renderNextGames(data.next_games || [], data.next_games_date || '');
     renderEdges(data.edges || []);
     updateTimestamp();
     startCountdown();

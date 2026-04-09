@@ -41,7 +41,9 @@ def auth_middleware():
     if request.path == "/nba_data.json":
         return
     # Public read-only proxy endpoints (Polymarket, ESPN, Pionex market data)
-    PUBLIC_PREFIXES = ("/api/poly/", "/api/nba/", "/api/tickers", "/api/klines", "/api/stream")
+    PUBLIC_PREFIXES = ("/api/poly/", "/api/nba/", "/api/tickers", "/api/klines", "/api/stream",
+                       "/api/bots", "/api/pnl", "/api/state", "/api/portfolio",
+                       "/api/mlb/")
     if any(request.path.startswith(p) for p in PUBLIC_PREFIXES):
         return
     # Sensitive endpoints require auth token
@@ -67,6 +69,7 @@ _HTML_PAGES = {
     "/btc": "btc.html",
     "/eth": "eth.html",
     "/wti": "wti.html",
+    "/mlb": "mlb.html",
 }
 
 # Dynamically register all HTML page routes
@@ -97,6 +100,22 @@ def nba_predictions():
         r = subprocess.run(
             [sys.executable, str(BOT_DIR / "nba_predictor.py"), "--edge", "--json"],
             capture_output=True, text=True, timeout=60, encoding="utf-8"
+        )
+        if r.returncode == 0:
+            return Response(r.stdout, content_type="application/json")
+        return jsonify({"error": r.stderr[:500]}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/mlb/predictions")
+def mlb_predictions():
+    """Run MLB predictor and return JSON results."""
+    import subprocess
+    try:
+        r = subprocess.run(
+            [sys.executable, str(ROOT_DIR / "MLB" / "mlb_predictor.py"), "--json"],
+            capture_output=True, text=True, timeout=180, encoding="utf-8"
         )
         if r.returncode == 0:
             return Response(r.stdout, content_type="application/json")

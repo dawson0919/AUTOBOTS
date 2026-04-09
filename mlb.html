@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>⚾ MLB 預測 — Elo + Starter ERA Model</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#020617;--card:#0f172a;--card2:#1e293b;--border:#334155;
+  --text:#e2e8f0;--muted:#94a3b8;--dim:#64748b;
+  --win:#22c55e;--lose:#ef4444;--neutral:#f59e0b;
+  --accent:#166534;--accent-lit:#16a34a;--accent-glow:#22c55e;
+  --accent2:#15803d;--accent3:#4ade80;
+  --mono:'JetBrains Mono',monospace;--sans:'Noto Sans TC',sans-serif
+}
+body{background:linear-gradient(180deg,var(--bg) 0%,var(--card) 30%,var(--bg) 100%);color:var(--text);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── NAV ───────────────────────────────────────── */
+#global-nav a:hover{background:rgba(22,163,74,0.12)!important;color:#86efac!important;border-bottom-color:#16a34a!important}
+
+/* ── HEADER ─────────────────────────────────────── */
+.header{background:linear-gradient(135deg,var(--card) 0%,#052e16 50%,var(--card) 100%);border-bottom:1px solid var(--border);padding:16px 20px}
+.header-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.header h1{font-size:17px;font-weight:900;font-family:var(--mono);background:linear-gradient(135deg,var(--accent-glow),#86efac,#bbf7d0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+.header .sub{font-size:11px;color:var(--dim);margin-top:2px;font-family:var(--mono)}
+.meta{font-size:10px;color:#475569;margin-top:6px;font-family:var(--mono)}
+.btn{font-family:var(--mono);font-size:11px;border-radius:6px;padding:6px 12px;cursor:pointer;border:1px solid;transition:all 0.2s;background:none}
+.btn-refresh{background:rgba(22,163,74,0.1);border-color:var(--accent-lit);color:#86efac}
+.btn-refresh:hover{background:rgba(22,163,74,0.2)}
+.btn-auto{border-color:var(--win);color:var(--win);background:rgba(34,197,94,0.1)}
+.btn-auto.off{border-color:var(--dim);color:var(--dim);background:rgba(100,116,139,0.1)}
+
+/* ── CONTAINER ──────────────────────────────────── */
+.container{max-width:960px;margin:0 auto;padding:16px}
+
+/* ── SECTION TITLE ──────────────────────────────── */
+.section-title{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent3);margin:20px 0 12px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--accent-lit),transparent)}
+
+/* ── GAME GRID ──────────────────────────────────── */
+.game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-bottom:8px}
+
+/* ── GAME CARD ──────────────────────────────────── */
+.game-card{background:linear-gradient(135deg,var(--card) 0%,var(--card2) 100%);border:1px solid var(--border);border-radius:12px;padding:14px;transition:border-color 0.2s,transform 0.2s;position:relative;overflow:hidden}
+.game-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(34,197,94,0.5),transparent);opacity:0;transition:opacity 0.3s}
+.game-card:hover::before{opacity:1}
+.game-card:hover{border-color:var(--accent-lit);transform:translateY(-2px)}
+.game-card.final-card{border-color:#334155;opacity:0.88}
+
+/* Card top row: status + time */
+.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.game-status{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 8px;border-radius:3px}
+.status-scheduled{background:rgba(59,130,246,0.12);color:#93c5fd;border:1px solid rgba(59,130,246,0.3)}
+.status-live{background:rgba(234,179,8,0.15);color:#fde047;border:1px solid rgba(234,179,8,0.4);animation:blink 1.5s infinite}
+.status-final{background:rgba(100,116,139,0.15);color:var(--dim);border:1px solid #334155}
+@keyframes blink{50%{opacity:0.5}}
+.game-time{font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+/* Matchup row */
+.matchup{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
+.team-side{flex:1;text-align:center}
+.team-abbr{font-family:var(--mono);font-size:17px;font-weight:800;color:var(--text);line-height:1}
+.team-full{font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.team-record{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:2px}
+.at-badge{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--dim);flex-shrink:0;padding:4px 6px;background:var(--bg);border-radius:4px;border:1px solid var(--border)}
+
+/* Starter pitchers row */
+.pitchers-row{background:rgba(0,0,0,0.25);border:1px solid #1e3a2a;border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.pitchers-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:4px}
+.pitchers-matchup{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.pitcher-info{flex:1;text-align:center}
+.pitcher-name{font-family:var(--mono);font-size:11px;font-weight:600;color:#d1fae5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pitcher-era{font-family:var(--mono);font-size:10px;color:var(--accent3)}
+.pitcher-vs{font-family:var(--mono);font-size:9px;color:var(--dim);flex-shrink:0}
+
+/* Win probability bar */
+.prob-section{margin-bottom:8px}
+.prob-bar-wrap{display:flex;height:22px;border-radius:4px;overflow:hidden;font-family:var(--mono);font-size:10px;font-weight:700;line-height:22px}
+.prob-away-fill{background:linear-gradient(90deg,rgba(239,68,68,0.25),rgba(239,68,68,0.15));color:#fca5a5;padding:0 6px;min-width:34px;transition:width 0.6s;white-space:nowrap;text-align:left}
+.prob-home-fill{background:linear-gradient(90deg,rgba(34,197,94,0.15),rgba(34,197,94,0.3));color:#86efac;padding:0 6px;min-width:34px;transition:width 0.6s;white-space:nowrap;text-align:right;margin-left:auto}
+.prob-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px}
+
+/* Stats footer row */
+.card-footer{display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #1e293b;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.footer-elo{display:flex;gap:6px}
+.elo-tag{background:rgba(22,163,74,0.1);border:1px solid rgba(22,163,74,0.3);border-radius:3px;padding:2px 6px;color:#86efac;font-size:9px}
+.total-tag{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:3px;padding:2px 6px;color:#fde68a;font-size:9px}
+
+/* Injury badge */
+.injury-badge{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:5px 8px;margin-bottom:8px;font-size:10px;color:#fca5a5;font-family:var(--mono)}
+.injury-badge .injury-label{font-size:9px;letter-spacing:1px;color:#f87171;margin-bottom:2px}
+
+/* Result badge */
+.result-badge{position:absolute;top:10px;right:10px;font-size:14px;line-height:1}
+
+/* Score display for final games */
+.final-score{display:flex;justify-content:center;align-items:center;gap:12px;font-family:var(--mono);font-size:18px;font-weight:800;margin-bottom:8px}
+.score-away{color:var(--text)}
+.score-sep{color:var(--dim);font-size:14px}
+.score-home{color:var(--text)}
+.score-winner{color:var(--win)}
+
+/* ── POWER RANKINGS TABLE ───────────────────────── */
+.rankings-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:0;overflow:hidden;margin-bottom:8px}
+.rankings-table{width:100%;border-collapse:collapse}
+.rankings-table th{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);background:rgba(0,0,0,0.3);padding:10px 12px;text-align:right;border-bottom:1px solid var(--border)}
+.rankings-table th:first-child,.rankings-table th:nth-child(2){text-align:left}
+.rankings-table td{padding:9px 12px;font-family:var(--mono);font-size:12px;border-bottom:1px solid rgba(51,65,85,0.4);text-align:right;color:var(--muted)}
+.rankings-table td:first-child{text-align:left;width:32px;color:var(--dim)}
+.rankings-table td:nth-child(2){text-align:left;color:var(--text);font-weight:700;font-size:12px}
+.rankings-table tr:last-child td{border-bottom:none}
+.rankings-table tr:hover td{background:rgba(22,163,74,0.06)}
+.rank-top{color:#fbbf24;font-weight:700}
+.rank-mid{color:var(--muted)}
+.pct-good{color:var(--win)}
+.pct-avg{color:var(--neutral)}
+.pct-bad{color:var(--lose)}
+.diff-pos{color:var(--win)}
+.diff-neg{color:var(--lose)}
+.team-rank-bar{display:inline-block;height:6px;background:linear-gradient(90deg,var(--accent-lit),var(--accent3));border-radius:3px;vertical-align:middle;margin-left:6px;transition:width 0.8s}
+
+/* ── BACKTEST KPI CARDS ─────────────────────────── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.kpi-card{background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:14px;text-align:center}
+.kpi-label{font-size:10px;color:var(--dim);font-family:var(--mono);letter-spacing:1px;margin-bottom:4px}
+.kpi-value{font-size:24px;font-weight:800;font-family:var(--mono)}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.kpi-good{color:var(--win)}
+.kpi-warn{color:var(--neutral)}
+.kpi-bad{color:var(--lose)}
+.kpi-neutral{color:#93c5fd}
+
+/* ── BACKTEST RESULTS TABLE ─────────────────────── */
+.results-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.results-table{width:100%;border-collapse:collapse}
+.results-table th{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);background:rgba(0,0,0,0.3);padding:10px 12px;border-bottom:1px solid var(--border);text-align:left}
+.results-table td{padding:8px 12px;font-family:var(--mono);font-size:11px;border-bottom:1px solid rgba(51,65,85,0.4);color:var(--muted)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(22,163,74,0.06)}
+.result-win{color:var(--win);font-weight:700}
+.result-loss{color:var(--lose);font-weight:700}
+.result-push{color:var(--neutral);font-weight:700}
+.conf-high{color:#86efac;font-weight:700}
+.conf-med{color:#fde68a}
+.conf-low{color:var(--dim)}
+
+/* ── NEXT DATE BANNER ───────────────────────────── */
+.date-banner{background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;color:#86efac;display:flex;align-items:center;gap:8px}
+
+/* ── EMPTY STATE ─────────────────────────────────── */
+.empty-state{text-align:center;padding:40px 20px;color:var(--dim);font-size:13px;font-family:var(--mono)}
+
+/* ── LOADING ─────────────────────────────────────── */
+.loading{text-align:center;padding:60px 20px;color:var(--dim);font-size:14px;font-family:var(--mono)}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent3);border-radius:50%;animation:spin 0.8s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── ERROR BANNER ───────────────────────────────── */
+.error-banner{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:12px 16px;margin-bottom:12px;font-family:var(--mono);font-size:11px;color:#fca5a5}
+
+/* ── METHOD NOTE ─────────────────────────────────── */
+.method-note{background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:16px;margin-top:20px;margin-bottom:30px}
+.method-note h3{color:var(--muted);font-size:12px;font-weight:700;font-family:var(--mono);margin-bottom:8px;letter-spacing:1px}
+.method-note p{font-size:11px;color:var(--dim);line-height:1.8;margin-bottom:4px}
+.method-note strong{color:#86efac}
+
+/* ── RESPONSIVE ─────────────────────────────────── */
+@media(max-width:600px){
+  .game-grid{grid-template-columns:1fr}
+  .header h1{font-size:14px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .rankings-table th:nth-child(n+6),.rankings-table td:nth-child(n+6){display:none}
+  .container{padding:10px}
+}
+@media(max-width:900px){
+  .game-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- ── GLOBAL NAV ──────────────────────────────────────────────────────── -->
+<nav id="global-nav" style="display:flex;gap:0;background:#0f172a;border-bottom:1px solid #334155;position:sticky;top:0;z-index:200;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <a href="/"         class="nav-tab" data-page="trading"   style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">Trading</a>
+  <a href="/polymarket" class="nav-tab" data-page="polymarket" style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">Polymarket</a>
+  <a href="/nba"      class="nav-tab" data-page="nba"       style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">NBA</a>
+  <a href="/btc"      class="nav-tab" data-page="btc"       style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">BTC</a>
+  <a href="/eth"      class="nav-tab" data-page="eth"       style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">ETH</a>
+  <a href="/wti"      class="nav-tab" data-page="wti"       style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">WTI</a>
+  <a href="/mlb"      class="nav-tab" data-page="mlb"       style="padding:10px 18px;font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;color:#64748b;">MLB</a>
+</nav>
+<script>
+(function(){
+  document.querySelectorAll('.nav-tab').forEach(function(t){
+    var p=location.pathname, d=t.dataset.page;
+    var active=(p==='/'&&d==='trading')||(p==='/'+d)||(p.startsWith('/'+d+'/'));
+    if(active){
+      t.style.borderBottomColor='#16a34a';
+      t.style.color='#4ade80';
+      t.style.background='rgba(22,163,74,0.12)';
+    }
+  });
+})();
+</script>
+
+<!-- ── PAGE HEADER ─────────────────────────────────────────────────────── -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>⚾ MLB 預測 — Elo + Starter ERA Model</h1>
+      <div class="sub">MLB 預測儀表板 · Elo 評分 + 先發投手 ERA 加權勝率模型</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-auto" id="autoBtn" onclick="toggleAuto()">● 自動</button>
+      <button class="btn btn-refresh" id="refreshBtn" onclick="doRefresh()">⟳ 刷新</button>
+    </div>
+  </div>
+  <div class="meta" id="metaInfo">載入中...</div>
+</div>
+
+<!-- ── APP CONTAINER ───────────────────────────────────────────────────── -->
+<div class="container" id="app">
+  <div class="loading"><span class="spinner"></span>正在載入 MLB 預測資料...</div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────
+let autoOn = true, intv = null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ── Toggle auto-refresh ──────────────────────────────────────────────────
+function toggleAuto() {
+  autoOn = !autoOn;
+  const btn = $('#autoBtn');
+  if (autoOn) {
+    btn.textContent = '● 自動';
+    btn.className = 'btn btn-auto';
+    scheduleNext();
+  } else {
+    btn.textContent = '○ 手動';
+    btn.className = 'btn btn-auto off';
+    if (intv) { clearTimeout(intv); intv = null; }
+  }
+}
+
+function scheduleNext() {
+  if (intv) clearTimeout(intv);
+  if (autoOn) intv = setTimeout(() => { doRefresh(); }, 60000);
+}
+
+function doRefresh() {
+  const btn = $('#refreshBtn');
+  if (btn) btn.textContent = '⟳ 刷新中...';
+  fetchData();
+}
+
+// ── Format helpers ───────────────────────────────────────────────────────
+function fmt2(n) { return n != null ? Number(n).toFixed(2) : '--'; }
+function fmtPct(v) { return v != null ? (v * 100).toFixed(1) + '%' : '--'; }
+function fmtPct0(v) { return v != null ? Math.round(v * 100) + '%' : '--'; }
+function fmtElo(v) { return v != null ? Math.round(v) : '--'; }
+
+// ── Game card builder ────────────────────────────────────────────────────
+function buildGameCard(g) {
+  const isFinal = (g.status || '').toLowerCase() === 'final';
+  const isLive  = (g.status || '').toLowerCase() === 'live';
+
+  const statusClass = isFinal ? 'status-final' : isLive ? 'status-live' : 'status-scheduled';
+  const statusLabel = isFinal ? '已結束 Final' : isLive ? '⚡ 進行中' : '預定 Scheduled';
+
+  // Star rating based on confidence
+  const awayPct = g.away_prob != null ? g.away_prob : 50;
+  const homePct = g.home_prob != null ? g.home_prob : 50;
+  const awayWinPct = awayPct / 100;
+  const homeWinPct = homePct / 100;
+  const awayBarW = Math.round(awayPct);
+  const homeBarW = Math.round(homePct);
+
+  // Starting pitchers section
+  let pitchersHtml = '';
+  const awayPitcher = g.away_pitcher || g.away_starter || null;
+  const homePitcher = g.home_pitcher || g.home_starter || null;
+  if (awayPitcher || homePitcher) {
+    const awayName = awayPitcher ? esc(awayPitcher.name || awayPitcher) : 'TBD';
+    const awayEra  = awayPitcher && awayPitcher.era != null ? awayPitcher.era : (typeof awayPitcher === 'object' ? null : null);
+    const homeName = homePitcher ? esc(homePitcher.name || homePitcher) : 'TBD';
+    const homeEra  = homePitcher && homePitcher.era != null ? homePitcher.era : null;
+    pitchersHtml = `
+      <div class="pitchers-row">
+        <div class="pitchers-label">先發投手 STARTING PITCHERS</div>
+        <div class="pitchers-matchup">
+          <div class="pitcher-info">
+            <div class="pitcher-name">${awayName}</div>
+            ${awayEra != null ? `<div class="pitcher-era">ERA ${fmt2(awayEra)}</div>` : ''}
+          </div>
+          <div class="pitcher-vs">vs</div>
+          <div class="pitcher-info">
+            <div class="pitcher-name">${homeName}</div>
+            ${homeEra != null ? `<div class="pitcher-era">ERA ${fmt2(homeEra)}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Injury section
+  let injuryHtml = '';
+  const inj = g.injuries || {};
+  const ho = inj.home_out || [], ao = inj.away_out || [];
+  const hg = inj.home_gtd || [], ag = inj.away_gtd || [];
+  if (ho.length || ao.length || hg.length || ag.length) {
+    let injLines = '';
+    const awayShort = (g.away_abbr || g.away || '').split(' ').pop();
+    const homeShort = (g.home_abbr || g.home || '').split(' ').pop();
+    if (ao.length) injLines += `<div style="color:#fca5a5;">${esc(awayShort)} ❌ OUT: <b>${ao.map(p=>esc(p.name)).join(', ')}</b></div>`;
+    if (ag.length) injLines += `<div style="color:#fde68a;">${esc(awayShort)} ⚠️ DTD: ${ag.map(p=>esc(p.name)).join(', ')}</div>`;
+    if (ho.length) injLines += `<div style="color:#fca5a5;">${esc(homeShort)} ❌ OUT: <b>${ho.map(p=>esc(p.name)).join(', ')}</b></div>`;
+    if (hg.length) injLines += `<div style="color:#fde68a;">${esc(homeShort)} ⚠️ DTD: ${hg.map(p=>esc(p.name)).join(', ')}</div>`;
+    injuryHtml = `
+      <div class="injury-badge">
+        <div class="injury-label">🏥 傷兵報告 INJURY REPORT</div>
+        ${injLines}
+      </div>`;
+  }
+
+  // Final score / result section
+  let scoreHtml = '';
+  let resultBadge = '';
+  if (isFinal && g.away_score != null && g.home_score != null) {
+    const awayWon = g.away_score > g.home_score;
+    const homeWon = g.home_score > g.away_score;
+    const awayClass = awayWon ? 'score-away score-winner' : 'score-away';
+    const homeClass = homeWon ? 'score-home score-winner' : 'score-home';
+    scoreHtml = `
+      <div class="final-score">
+        <span class="${awayClass}">${g.away_score}</span>
+        <span class="score-sep">:</span>
+        <span class="${homeClass}">${g.home_score}</span>
+      </div>`;
+
+    // Check prediction result
+    if (g.predicted_winner != null) {
+      const awayTeamId = (g.away_abbr || g.away_team || '').toUpperCase();
+      const homeTeamId = (g.home_abbr || g.home_team || '').toUpperCase();
+      const actualWinner = awayWon ? awayTeamId : homeWon ? homeTeamId : null;
+      const predWinner = (g.predicted_winner || '').toUpperCase();
+      if (actualWinner && predWinner) {
+        resultBadge = predWinner === actualWinner
+          ? '<div class="result-badge">✅</div>'
+          : '<div class="result-badge">❌</div>';
+      }
+    }
+  }
+
+  // Elo + total
+  const awayElo = g.away_elo != null ? g.away_elo : (g.elo_away != null ? g.elo_away : null);
+  const homeElo = g.home_elo != null ? g.home_elo : (g.elo_home != null ? g.elo_home : null);
+  const totalRuns = g.pred_total != null ? g.pred_total : (g.predicted_total != null ? g.predicted_total : null);
+
+  const eloHtml = (awayElo != null && homeElo != null)
+    ? `<div class="footer-elo"><span class="elo-tag">Elo ${fmtElo(awayElo)}</span><span class="elo-tag">Elo ${fmtElo(homeElo)}</span></div>`
+    : '<div></div>';
+  const totalHtml = totalRuns != null
+    ? `<span class="total-tag">⚾ 預計總分 ${Number(totalRuns).toFixed(1)}</span>`
+    : '';
+
+  const awayAbbr = esc(g.away_abbr || g.away_team || '???');
+  const homeAbbr = esc(g.home_abbr || g.home_team || '???');
+  const awayFull = esc(g.away_name || g.away_team || '');
+  const homeFull = esc(g.home_name || g.home_team || '');
+  const awayRecord = g.away_record ? `<div class="team-record">${esc(g.away_record)}</div>` : '';
+  const homeRecord = g.home_record ? `<div class="team-record">${esc(g.home_record)}</div>` : '';
+  const gameTime = g.time || g.game_time || '';
+
+  return `
+  <div class="game-card ${isFinal ? 'final-card' : ''}">
+    ${resultBadge}
+    <div class="card-top">
+      <span class="game-status ${statusClass}">${statusLabel}</span>
+      <span class="game-time">${esc(gameTime)}</span>
+    </div>
+    ${(() => {
+      const conf = Math.max(awayPct, homePct);
+      const pick = homePct > awayPct ? (g.home_abbr || g.home.split(' ').pop()) : (g.away_abbr || g.away.split(' ').pop());
+      let stars = 1, starColor = '#64748b', label = '觀望';
+      if (conf >= 65) { stars = 3; starColor = '#22c55e'; label = '強力推薦'; }
+      else if (conf >= 60) { stars = 3; starColor = '#166534'; label = '推薦'; }
+      else if (conf >= 55) { stars = 2; starColor = '#f59e0b'; label = '中等信心'; }
+      const starStr = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:8px;border-radius:6px;background:rgba(0,0,0,0.2);border:1px solid ' + starColor + '30;font-family:var(--mono);font-size:11px;">' +
+        '<span style="color:' + starColor + ';font-size:14px;letter-spacing:2px;">' + starStr + '</span>' +
+        '<span style="color:' + starColor + ';font-weight:700;">' + label + ' ' + pick + ' ' + conf.toFixed(0) + '%</span>' +
+      '</div>';
+    })()}
+    <div class="matchup">
+      <div class="team-side">
+        <div class="team-abbr">${awayAbbr}</div>
+        <div class="team-full">${awayFull}</div>
+        ${awayRecord}
+      </div>
+      <div class="at-badge">@</div>
+      <div class="team-side">
+        <div class="team-abbr">${homeAbbr}</div>
+        <div class="team-full">${homeFull}</div>
+        ${homeRecord}
+      </div>
+    </div>
+    ${scoreHtml}
+    ${pitchersHtml}
+    ${injuryHtml}
+    <div class="prob-section">
+      <div class="prob-bar-wrap">
+        <div class="prob-away-fill" style="width:${awayBarW}%">${fmtPct0(awayWinPct)}</div>
+        <div class="prob-home-fill" style="width:${homeBarW}%">${fmtPct0(homeWinPct)}</div>
+      </div>
+      <div class="prob-labels">
+        <span>${awayAbbr} 勝率</span>
+        <span>${homeAbbr} 勝率</span>
+      </div>
+    </div>
+    <div class="card-footer">
+      ${eloHtml}
+      ${totalHtml}
+    </div>
+  </div>`;
+}
+
+// ── Power Rankings table ─────────────────────────────────────────────────
+function buildRankings(standings) {
+  if (!standings || standings.length === 0) {
+    return '<div class="empty-state">暫無排名資料</div>';
+  }
+  const maxWinPct = Math.max(...standings.map(t => t.win_pct || t.pct || 0));
+
+  const rows = standings.slice(0, 15).map((t, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? 'rank-top' : 'rank-mid';
+    const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+
+    const teamName = esc(t.team || t.name || '--');
+    const wins  = t.wins  != null ? t.wins  : (t.w != null ? t.w : '--');
+    const losses= t.losses!= null ? t.losses: (t.l != null ? t.l : '--');
+    const wl    = (wins !== '--' && losses !== '--') ? `${wins}-${losses}` : '--';
+
+    const pct = t.win_pct != null ? t.win_pct : (t.pct != null ? t.pct : null);
+    const pctDisplay = pct != null ? pct.toFixed(3).replace(/^0/, '') : '--';
+    const pctClass = pct == null ? '' : pct >= 0.550 ? 'pct-good' : pct >= 0.450 ? 'pct-avg' : 'pct-bad';
+
+    const rsg = t.rs_pg != null ? Number(t.rs_pg).toFixed(2)
+              : t.rs_per_game != null ? Number(t.rs_per_game).toFixed(2) : '--';
+    const rag = t.ra_pg != null ? Number(t.ra_pg).toFixed(2)
+              : t.ra_per_game != null ? Number(t.ra_per_game).toFixed(2) : '--';
+
+    const diff = t.diff != null ? t.diff
+               : t.run_diff != null ? t.run_diff
+               : (rsg !== '--' && rag !== '--') ? (Number(rsg) - Number(rag)).toFixed(2) : null;
+    const diffDisplay = diff != null ? (diff > 0 ? '+' + Number(diff).toFixed(1) : Number(diff).toFixed(1)) : '--';
+    const diffClass = diff == null ? '' : diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : '';
+
+    const barW = pct != null ? Math.round((pct / maxWinPct) * 70) : 0;
+
+    return `
+    <tr>
+      <td class="${rankClass}">${rankEmoji}</td>
+      <td>${teamName}<span class="team-rank-bar" style="width:${barW}px"></span></td>
+      <td>${wl}</td>
+      <td class="${pctClass}">${pctDisplay}</td>
+      <td>${rsg}</td>
+      <td>${rag}</td>
+      <td class="${diffClass}">${diffDisplay}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="rankings-card">
+    <table class="rankings-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>球隊 TEAM</th>
+          <th>W-L</th>
+          <th>勝率 PCT</th>
+          <th>RS/G</th>
+          <th>RA/G</th>
+          <th>得失差 DIFF</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+// ── Backtest section ─────────────────────────────────────────────────────
+function buildBacktest(bt) {
+  if (!bt) return '<div class="empty-state">暫無回測資料</div>';
+
+  const allWr    = bt.all_wr != null ? bt.all_wr + '%' : '--';
+  const strongWr = bt.strong_wr != null ? bt.strong_wr + '%' : '--';
+  const totalG   = bt.games_tested != null ? bt.games_tested : '--';
+  const strongG  = bt.strong_count != null ? bt.strong_count : '--';
+  const roi      = bt.roi != null ? (bt.roi > 0 ? '+' : '') + bt.roi + '%' : '--';
+  const vsWr     = bt.vstrong_wr != null ? bt.vstrong_wr + '%' : '--';
+  const vsG      = bt.vstrong_count != null ? bt.vstrong_count : 0;
+
+  const wrClass    = parseFloat(allWr) >= 60 ? 'kpi-good' : parseFloat(allWr) >= 55 ? 'kpi-warn' : 'kpi-bad';
+  const strongClass= parseFloat(strongWr) >= 70 ? 'kpi-good' : parseFloat(strongWr) >= 60 ? 'kpi-warn' : 'kpi-bad';
+  const roiClass   = bt.roi != null ? (bt.roi > 0 ? 'kpi-good' : bt.roi >= -5 ? 'kpi-warn' : 'kpi-bad') : 'kpi-neutral';
+
+  const kpiHtml = `
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">全部勝率</div>
+      <div class="kpi-value ${wrClass}">${allWr}</div>
+      <div class="kpi-sub">${totalG} 場比賽</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">強信心勝率</div>
+      <div class="kpi-value ${strongClass}">${strongWr}</div>
+      <div class="kpi-sub">${strongG} 場比賽</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">模型 ROI</div>
+      <div class="kpi-value ${roiClass}">${roi}</div>
+      <div class="kpi-sub">假設 -110 賠率</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">超強推 >65%</div>
+      <div class="kpi-value ${vsG > 0 ? 'kpi-good' : 'kpi-neutral'}">${vsWr}</div>
+      <div class="kpi-sub">${vsG} 場比賽</div>
+    </div>
+  </div>`;
+
+  // Recent results table
+  const recent = bt.recent || [];
+  let tableHtml = '';
+  if (recent.length > 0) {
+    const recentRev = [...recent].reverse();
+    const rows = recentRev.slice(0, 20).map(r => {
+      const date  = r.date ? r.date.substring(4,6) + '/' + r.date.substring(6,8) : '--';
+      const away  = esc((r.away || '--').split(' ').pop());
+      const home  = esc((r.home || '--').split(' ').pop());
+      const pred  = esc((r.pick || '--').split(' ').pop());
+      const actual= esc((r.winner || '--').split(' ').pop());
+      const conf  = r.conf != null ? r.conf + '%' : '--';
+      const outcome = r.correct === true ? 'W' : r.correct === false ? 'L' : '~';
+      const outcomeClass = outcome === 'W' ? 'result-win' : outcome === 'L' ? 'result-loss' : 'result-push';
+      const confClass = r.conf >= 65 ? 'conf-high' : r.conf >= 55 ? 'conf-med' : 'conf-low';
+      return `
+      <tr>
+        <td>${date}</td>
+        <td>${away} @ ${home}</td>
+        <td>${pred}</td>
+        <td>${actual}</td>
+        <td class="${confClass}">${conf}</td>
+        <td class="${outcomeClass}">${outcome}</td>
+      </tr>`;
+    }).join('');
+
+    tableHtml = `
+    <div class="results-card">
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>日期 DATE</th>
+            <th>比賽 MATCHUP</th>
+            <th>預測 PRED</th>
+            <th>實際 ACTUAL</th>
+            <th>信心 CONF</th>
+            <th>結果</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  return kpiHtml + tableHtml;
+}
+
+// ── Main render ──────────────────────────────────────────────────────────
+function render(data) {
+  const games      = data.games       || [];
+  const nextGames  = data.next_games  || [];
+  const nextDate   = data.next_games_date || '';
+  const standings  = data.standings_top || data.standings || [];
+  const backtest   = data.backtest    || null;
+
+  let html = '';
+
+  // Today's win rate
+  const finalGames = games.filter(g => (g.status||'').toLowerCase() === 'final');
+  let todayWrHtml = '';
+  if (finalGames.length > 0) {
+    let correct = 0;
+    finalGames.forEach(g => {
+      const pickHome = g.home_prob > g.away_prob;
+      const homeWon = g.home_score > g.away_score;
+      if (pickHome === homeWon) correct++;
+    });
+    const wr = Math.round(correct / finalGames.length * 100);
+    const wrColor = wr >= 70 ? '#22c55e' : wr >= 55 ? '#166534' : wr >= 50 ? '#f59e0b' : '#ef4444';
+    // Strong picks (>60%) win rate
+    const strongFinal = finalGames.filter(g => Math.max(g.home_prob||0, g.away_prob||0) >= 60);
+    let strongCorrect = 0;
+    strongFinal.forEach(g => {
+      const pickHome = g.home_prob > g.away_prob;
+      const homeWon = g.home_score > g.away_score;
+      if (pickHome === homeWon) strongCorrect++;
+    });
+    const strongWr = strongFinal.length > 0 ? Math.round(strongCorrect / strongFinal.length * 100) : 0;
+    const strongColor = strongFinal.length === 0 ? 'var(--dim)' : strongWr >= 75 ? '#22c55e' : strongWr >= 60 ? '#166534' : strongWr >= 50 ? '#f59e0b' : '#ef4444';
+
+    todayWrHtml = `
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:130px;background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:2px;margin-bottom:6px;">今日勝率</div>
+        <div style="font-family:var(--mono);font-size:32px;font-weight:900;color:${wrColor};">${wr}%</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px;">${correct} / ${finalGames.length} 場</div>
+      </div>
+      <div style="flex:1;min-width:130px;background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:2px;margin-bottom:6px;">★★★ 60%+ 勝率</div>
+        <div style="font-family:var(--mono);font-size:32px;font-weight:900;color:${strongColor};">${strongFinal.length > 0 ? strongWr + '%' : '—'}</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px;">${strongCorrect} / ${strongFinal.length} 場</div>
+      </div>
+      <div style="flex:1;min-width:130px;background:var(--card);border:1px solid var(--card2);border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:2px;margin-bottom:6px;">進行中 / 預定</div>
+        <div style="font-family:var(--mono);font-size:32px;font-weight:900;color:var(--accent);">${games.length - finalGames.length}</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px;">共 ${games.length} 場</div>
+      </div>
+    </div>`;
+  }
+
+  // Today's Games
+  html += '<div class="section-title">⚾ 今日賽事 TODAY\'S GAMES</div>';
+  html += todayWrHtml;
+  if (games.length === 0) {
+    html += '<div class="empty-state">今日無賽事排程</div>';
+  } else {
+    html += '<div class="game-grid">';
+    games.forEach(g => { html += buildGameCard(g); });
+    html += '</div>';
+  }
+
+  // Next Games
+  html += `<div class="section-title">📅 下一輪賽事 NEXT GAMES</div>`;
+  if (nextDate) {
+    html += `<div class="date-banner">📆 賽程日期：${esc(nextDate)}</div>`;
+  }
+  if (nextGames.length === 0) {
+    html += '<div class="empty-state">暫無下一輪賽事資料</div>';
+  } else {
+    html += '<div class="game-grid">';
+    nextGames.forEach(g => { html += buildGameCard(g); });
+    html += '</div>';
+  }
+
+  // Power Rankings
+  html += '<div class="section-title">🏆 實力排行 POWER RANKINGS</div>';
+  html += buildRankings(standings);
+
+  // Backtest
+  html += '<div class="section-title">📊 回測結果 BACKTEST RESULTS</div>';
+  html += buildBacktest(backtest);
+
+  // Method note
+  html += `
+  <div class="method-note">
+    <h3>⚙ 模型說明 MODEL METHODOLOGY</h3>
+    <p><strong>Elo 評分系統</strong>：根據球隊歷史對戰結果動態調整，主場加成 +40 Elo 分。</p>
+    <p><strong>先發投手加權</strong>：根據先發投手 ERA 相對聯盟平均值計算勝率修正幅度。</p>
+    <p><strong>預計總分</strong>：結合兩隊近期得分均值與投手 ERA 推算期望總分。</p>
+    <p style="color:#ef4444;font-size:10px">⚠ 本頁面僅供資訊參考，不構成任何投注建議。</p>
+  </div>`;
+
+  $('#app').innerHTML = html;
+}
+
+// ── Fetch ────────────────────────────────────────────────────────────────
+async function fetchData() {
+  try {
+    const res = await fetch('/api/mlb/predictions', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const now = new Date().toLocaleString('zh-TW', { timeZone: 'America/New_York', hour12: false });
+    $('#metaInfo').textContent = `最後更新 ${now} ET · 每 60 秒自動刷新`;
+
+    const btn = $('#refreshBtn');
+    if (btn) btn.textContent = '⟳ 刷新';
+
+    render(data);
+    scheduleNext();
+  } catch (e) {
+    const btn = $('#refreshBtn');
+    if (btn) btn.textContent = '⟳ 刷新';
+
+    // Show error banner but preserve existing content if any
+    const existing = $('#app').innerHTML;
+    const errBanner = `<div class="error-banner">❌ 無法載入資料：${esc(e.message)}。將在 60 秒後重試。</div>`;
+    if (existing.includes('loading')) {
+      // First load failure — show placeholder
+      $('#app').innerHTML = errBanner + `
+      <div class="section-title">⚾ 今日賽事 TODAY'S GAMES</div>
+      <div class="empty-state">資料載入失敗，請確認後端服務正常運行</div>
+      <div class="section-title">🏆 實力排行 POWER RANKINGS</div>
+      <div class="empty-state">暫無資料</div>`;
+    } else {
+      // Already rendered — prepend error banner only
+      $('#app').innerHTML = errBanner + existing.replace(/<div class="error-banner[^"]*"[^>]*>.*?<\/div>/gs, '');
+    }
+
+    $('#metaInfo').textContent = `載入失敗 · ${new Date().toLocaleTimeString('zh-TW')} · 請稍後重試`;
+    scheduleNext();
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+fetchData();
+</script>
+</body>
+</html>
