@@ -7,48 +7,48 @@
       "ou": 225.5
     },
     "Miami Heat @ Washington Wizards": {
-      "spread": 17.5,
-      "ou": 246.5
+      "spread": 16.5,
+      "ou": 245.5
     },
     "Cleveland Cavaliers @ Atlanta Hawks": {
-      "spread": -8.5,
+      "spread": -7.5,
       "ou": 233.5
     },
     "Philadelphia 76ers @ Indiana Pacers": {
       "spread": 15.5,
-      "ou": 233.5
+      "ou": 232.5
     },
     "Toronto Raptors @ New York Knicks": {
-      "spread": -5.5,
-      "ou": 219.5
+      "spread": -6.5,
+      "ou": 221.5
     },
     "New Orleans Pelicans @ Boston Celtics": {
-      "spread": -17.5,
-      "ou": 223.5
+      "spread": -16.5,
+      "ou": 226.5
     },
     "Orlando Magic @ Chicago Bulls": {
-      "spread": 14.5,
+      "spread": 16.5,
       "ou": 242.5
     },
     "Dallas Mavericks @ San Antonio Spurs": {
-      "spread": -17.5,
-      "ou": 234.5
+      "spread": -18.5,
+      "ou": 237.5
     },
     "Brooklyn Nets @ Milwaukee Bucks": {
-      "spread": -9.5,
-      "ou": 218.5
+      "spread": -10.5,
+      "ou": 217.5
     },
     "Oklahoma City Thunder @ Denver Nuggets": {
-      "spread": -12.5,
+      "spread": -11.5,
       "ou": 231.5
     },
     "Memphis Grizzlies @ Utah Jazz": {
       "spread": -3.5,
-      "ou": 247.5
+      "ou": 248.5
     },
     "Minnesota Timberwolves @ Houston Rockets": {
       "spread": -10.5,
-      "ou": 222.5
+      "ou": 223.5
     },
     "Golden State Warriors @ Sacramento Kings": {
       "spread": 10.5,
@@ -60,8 +60,7 @@
     },
     "Phoenix Suns @ Los Angeles Lakers": {
       "spread": 2.5,
-      "ou": 219.5,
-      "updated": "playsport-confirmed"
+      "ou": 219.5
     }
   }
 }

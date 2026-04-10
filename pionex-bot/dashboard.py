@@ -124,6 +124,7 @@ def mlb_predictions():
         return jsonify({"error": str(e)}), 500
 
 
+
 @app.route("/api/nba/odds", methods=["GET", "POST"])
 def nba_odds():
     """Read/write Taiwan sports lottery odds."""

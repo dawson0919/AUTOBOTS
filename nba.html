@@ -271,10 +271,13 @@
   @media(max-width:1024px){
     .game-grid,.edge-grid,.tw-lottery-grid{grid-template-columns:repeat(2,1fr);}
     .model-info{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:1024px){
+    #top-picks-container > div:nth-child(2){grid-template-columns:repeat(2,1fr) !important;}}
   @media(max-width:640px){
     .game-grid,.edge-grid,.tw-lottery-grid{grid-template-columns:1fr;}
     .model-info{grid-template-columns:1fr;}
     .h-inner{flex-direction:column;align-items:flex-start;}
+    #top-picks-container > div:nth-child(2){grid-template-columns:1fr !important;}
     #wr-kpi-row{grid-template-columns:1fr !important;}}
 
   /* LIVE SCORE CARDS */
@@ -354,6 +357,9 @@
     </div>
   </section>
 
+  <!-- TOP PICKS FOR TODAY -->
+  <div id="today-top-picks-container"></div>
+
   <!-- SECTION 1: TODAY'S GAMES -->
   <section>
     <div class="section-title">Today's Games <span id="today-date-label" style="font-weight:400;color:var(--muted);font-size:10px;margin-left:8px;"></span></div>
@@ -402,6 +408,9 @@
 
   <!-- SECTION: NEXT GAMES -->
   <section id="next-games-section" style="display:none;">
+    <!-- Top Picks -->
+    <div id="top-picks-container"></div>
+
     <div class="section-title">🎯 Next Games — 運彩預測 <span id="next-games-date" style="font-weight:400;color:var(--muted);font-size:10px;margin-left:8px;"></span></div>
     <div class="game-grid" id="next-games-grid">
       <div style="color:var(--muted);font-family:'Share Tech Mono';font-size:11px;padding:12px;">Loading...</div>
@@ -1051,11 +1060,15 @@ function renderTWLottery(games, oddsMap) {
     let spreadImplied = 50;
     let spreadText = 'N/A';
     let ouText = 'N/A';
-    if (tw) {
-      spreadImplied = tw.spreadOdds > 0 ? (1 / tw.spreadOdds * 100) : 50;
-      const sign = tw.spread > 0 ? '+' : '';
-      spreadText = g.home + ' ' + sign + tw.spread + ' (' + tw.spreadOdds + ')';
-      ouText = tw.ou + ' 分';
+    if (tw && (tw.spread != null || tw.ou)) {
+      // Implied probability from spread: ~2.5% per point
+      if (tw.spread != null) {
+        spreadImplied = 50 + tw.spread * 2.5;
+        spreadImplied = Math.max(10, Math.min(90, spreadImplied));
+        const sign = tw.spread > 0 ? '+' : '';
+        spreadText = g.home.split(' ').pop() + ' ' + sign + tw.spread;
+      }
+      if (tw.ou) ouText = tw.ou + ' 分';
     }
 
     // Edge: model vs spread implied
@@ -1162,6 +1175,104 @@ function renderTWLottery(games, oddsMap) {
 }
 
 // ─── Render: Next Games TW Lottery ──────────────────────────────
+// ─── Render: Top Picks (最強推薦) ────────────────────────────────
+function renderTopPicks(games, oddsMap, containerId) {
+  const container = document.getElementById(containerId || 'top-picks-container');
+  if (!container || !games || games.length === 0) { if(container) container.innerHTML=''; return; }
+  const twOdds = oddsMap || window._twOddsMap || {};
+
+  // Analyze all games for edge
+  const picks = [];
+  games.forEach(g => {
+    const key = g.away + ' @ ' + g.home;
+    const tw = twOdds[key];
+    if (!tw || (tw.spread == null && !tw.ou)) return;
+
+    const hp = g.home_prob, ap = g.away_prob;
+    const sp = g.pred_spread || 0;
+    const pt = g.pred_total || 0;
+    const home_s = g.home.split(' ').pop();
+    const away_s = g.away.split(' ').pop();
+
+    const bets = [];
+
+    // Spread analysis
+    if (tw.spread != null) {
+      if (tw.spread < 0) {
+        // Home favored
+        const needed = Math.abs(tw.spread);
+        if (sp < needed - 2) {
+          bets.push({ text: '買 ' + away_s + ' 受讓 +' + needed, edge: needed - sp, type: 'spread' });
+        } else if (sp > needed + 2) {
+          bets.push({ text: '買 ' + home_s + ' 讓分 ' + tw.spread, edge: sp - needed, type: 'spread' });
+        }
+      } else {
+        // Away favored
+        const needed = tw.spread;
+        if (sp > -needed + 2) {
+          bets.push({ text: '買 ' + home_s + ' 受讓 +' + needed, edge: needed + sp, type: 'spread' });
+        } else if (sp < -needed - 2) {
+          bets.push({ text: '買 ' + away_s + ' 讓分 -' + needed, edge: Math.abs(sp) - needed, type: 'spread' });
+        }
+      }
+    }
+
+    // O/U analysis
+    if (tw.ou && pt) {
+      const diff = pt - tw.ou;
+      if (diff > 5) bets.push({ text: '看大 Over ' + tw.ou, edge: diff, type: 'ou' });
+      else if (diff < -5) bets.push({ text: '看小 Under ' + tw.ou, edge: Math.abs(diff), type: 'ou' });
+    }
+
+    if (bets.length >= 2) {
+      const maxEdge = Math.max(...bets.map(b => b.edge));
+      picks.push({ game: key, home_s, away_s, bets, maxEdge, conf: Math.max(hp, ap), sp, pt, tw });
+    }
+  });
+
+  // Sort by edge, take top 6
+  picks.sort((a, b) => b.maxEdge - a.maxEdge);
+  const top = picks.slice(0, 6);
+  if (top.length === 0) { container.innerHTML = ''; return; }
+
+  let html = `
+  <div class="section-title">🔥 最強推薦 — 模型 vs 運彩 Edge 最大的 ${top.length} 場</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">`;
+
+  top.forEach((p, i) => {
+    const borderColor = i < 2 ? '#22c55e' : i < 4 ? '#f59e0b' : '#6366f1';
+    html += `
+    <div style="background:var(--surface);border:1px solid var(--border);border-left:4px solid ${borderColor};
+      border-radius:8px;padding:14px;font-family:'Share Tech Mono';">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:14px;font-weight:900;color:var(--text);">#${i+1} ${p.away_s} @ ${p.home_s}</span>
+        <span style="font-size:11px;color:${borderColor};font-weight:700;">Edge +${p.maxEdge.toFixed(0)}分</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">
+        信心 ${p.conf.toFixed(0)}% | 模型分差 ${p.sp > 0 ? '+' : ''}${p.sp.toFixed(1)} | 總分 ${p.pt.toFixed(0)} | 讓分 ${p.tw.spread != null ? p.tw.spread : '—'} | O/U ${p.tw.ou || '—'}
+      </div>`;
+
+    p.bets.forEach(b => {
+      const bgColor = b.type === 'spread' ? 'rgba(34,197,94,0.1)' : 'rgba(99,102,241,0.1)';
+      const txtColor = b.type === 'spread' ? '#22c55e' : '#6366f1';
+      html += `
+      <div style="background:${bgColor};border:1px solid ${txtColor}30;border-radius:5px;padding:6px 10px;margin-bottom:4px;">
+        <span style="color:${txtColor};font-weight:700;font-size:12px;">→ ${b.text}</span>
+        <span style="float:right;color:var(--muted);font-size:10px;">edge +${b.edge.toFixed(1)}</span>
+      </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  html += `</div>
+  <div style="font-family:'Share Tech Mono';font-size:10px;color:var(--muted);text-align:center;margin-bottom:16px;">
+    ⚠️ 季末輪休潮嚴重，多隊主力缺陣。模型未完全量化替補戰力，建議以受讓為主。
+  </div>`;
+
+  container.innerHTML = html;
+}
+
 function renderNextTWLottery(games, oddsMap) {
   const grid = document.getElementById('next-tw-lottery-grid');
   if (!grid) return;
@@ -1638,7 +1749,13 @@ async function loadNBA() {
     if (tdl) { const now = new Date(); tdl.textContent = '(' + (now.getMonth()+1) + '/' + now.getDate() + ')'; }
     window._loadedNextGames = data.next_games || [];
     try { renderNextGames(window._loadedNextGames, data.next_games_date || ''); } catch(e) { console.error('renderNextGames error:', e); }
-    try { renderNextTWLottery(window._loadedNextGames, twOddsMap); } catch(e) { console.error('renderNextTWLottery error:', e); }
+    // Top picks for today (scheduled/live games only)
+    const todayScheduled = window._loadedGames.filter(g => g.status !== 'Final' && g.status !== 'Final/OT');
+    try { renderTopPicks(todayScheduled, twOddsMap, 'today-top-picks-container'); } catch(e) { console.error('renderTopPicks today error:', e); }
+    // Top picks for next games
+    const nextPickSource = window._loadedNextGames.length > 0 ? window._loadedNextGames : [];
+    try { renderTopPicks(nextPickSource, twOddsMap, 'top-picks-container'); } catch(e) { console.error('renderTopPicks next error:', e); }
+    try { renderNextTWLottery(nextPickSource.length > 0 ? nextPickSource : todayScheduled, twOddsMap); } catch(e) { console.error('renderNextTWLottery error:', e); }
     try { renderEloRankings(data.elo_teams || {}); } catch(e) { console.error('renderEloRankings error:', e); }
     try { renderTWLottery(window._loadedGames, twOddsMap); } catch(e) { console.error('renderTWLottery error:', e); }
     try { renderBacktest(data.backtest); } catch(e) { console.error('renderBacktest error:', e); }
