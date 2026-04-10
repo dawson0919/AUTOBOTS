@@ -220,11 +220,18 @@ def fetch_espn_standings() -> dict[str, dict]:
             gp = wins + losses or 1
             ppg = float(stats_map.get("PPG", 0)) or float(stats_map.get("PF", 0)) / gp
             oppg = float(stats_map.get("OPPG", 0)) or float(stats_map.get("PA", 0)) / gp
-            raw_diff = float(stats_map.get("DIFF", 0))
-            # DIFF from ESPN is season total, convert to per-game
-            diff_pg = raw_diff / gp if abs(raw_diff) > 50 else raw_diff
-            # If no oppg, derive from ppg and diff
-            if oppg == 0 and ppg > 0:
+            # Calculate diff from PF/PA directly (most reliable)
+            pf = float(stats_map.get("PF", 0))
+            pa = float(stats_map.get("PA", 0))
+            if pf > 0 and pa > 0:
+                diff_pg = (pf - pa) / gp
+            else:
+                raw_diff = float(stats_map.get("DIFF", 0))
+                diff_pg = raw_diff / gp if abs(raw_diff) > 50 else raw_diff
+            # Derive oppg from PF/PA if missing
+            if oppg == 0 and pa > 0:
+                oppg = pa / gp
+            elif oppg == 0 and ppg > 0:
                 oppg = ppg - diff_pg
             teams[name] = {
                 "abbr": abbr,
@@ -579,7 +586,14 @@ class NBAPredictor:
         """
         elo_a = self.elo.ratings.get(team_a, 1500)
         elo_b = self.elo.ratings.get(team_b, 1500)
-        h_adj = 100 if is_home else 0
+
+        # Scale home advantage by team quality
+        # Good teams (Elo > 1550) get full +100, bad teams (Elo < 1400) get reduced +60
+        if is_home:
+            quality = max(0, min(1, (elo_a - 1350) / 250))  # 0.0 (1350-) to 1.0 (1600+)
+            h_adj = 60 + 40 * quality  # Range: 60 (bad) to 100 (good)
+        else:
+            h_adj = 0
 
         # Elo-based margin: ~28 Elo points per 1 point of spread
         elo_margin = (elo_a - elo_b + h_adj) / 28.0
@@ -591,8 +605,9 @@ class NBAPredictor:
         diff_b = sb.get("diff", 0)
 
         if diff_a != 0 or diff_b != 0:
-            # Blend Elo margin with point differential advantage
-            stats_margin = (diff_a - diff_b) / 2 + 3.5 * (1 if is_home else 0)
+            # Scale home court for stats_margin too
+            home_pts = (h_adj / 100) * 3.5 if is_home else 0
+            stats_margin = (diff_a - diff_b) / 2 + home_pts
             return elo_margin * 0.6 + stats_margin * 0.4
         return elo_margin
 

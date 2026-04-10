@@ -124,6 +124,42 @@ def mlb_predictions():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/nba/odds", methods=["GET", "POST"])
+def nba_odds():
+    """Read/write Taiwan sports lottery odds."""
+    odds_path = BOT_DIR / "nba_odds.json"
+    if request.method == "POST":
+        try:
+            data = request.get_json(force=True)
+            # Merge with existing
+            existing = {}
+            if odds_path.exists():
+                with open(odds_path, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+            odds = existing.get("odds", {})
+            # data format: { "key": "Away @ Home", "spread": -3.5, "ou": 226.5 }
+            if "key" in data:
+                odds[data["key"]] = {
+                    "spread": float(data.get("spread", 0)),
+                    "ou": float(data.get("ou", 0)),
+                    "updated": data.get("updated", ""),
+                }
+            elif "odds" in data:
+                # Bulk update
+                odds.update(data["odds"])
+            existing["odds"] = odds
+            with open(odds_path, "w", encoding="utf-8") as f:
+                json.dump(existing, f, indent=2, ensure_ascii=False)
+            return jsonify({"ok": True, "count": len(odds)})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+    else:
+        if odds_path.exists():
+            with open(odds_path, "r", encoding="utf-8") as f:
+                return jsonify(json.load(f))
+        return jsonify({"odds": {}})
+
+
 @app.route("/api/nba/scoreboard")
 def nba_scoreboard():
     """Proxy ESPN NBA live scoreboard."""

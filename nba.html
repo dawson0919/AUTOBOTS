@@ -406,6 +406,11 @@
     <div class="game-grid" id="next-games-grid">
       <div style="color:var(--muted);font-family:'Share Tech Mono';font-size:11px;padding:12px;">Loading...</div>
     </div>
+    <!-- Next Games: TW Lottery -->
+    <div class="section-title" style="margin-top:20px;">🇹🇼 Next Games — 運彩盤口 vs 模型預測</div>
+    <div class="tw-lottery-grid" id="next-tw-lottery-grid">
+      <div style="text-align:center;padding:20px;font-family:'Share Tech Mono';color:var(--muted);">等待資料...</div>
+    </div>
   </section>
 
   <!-- SECTION 2: ELO POWER RANKINGS -->
@@ -519,6 +524,32 @@
           <span class="feature-pill">Home/Away</span>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ODDS INPUT FORM -->
+  <section>
+    <div class="section-title">🇹🇼 輸入運彩盤口</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:2;min-width:200px;">
+          <label style="font-family:'Share Tech Mono';font-size:10px;color:var(--muted);display:block;margin-bottom:4px;">比賽 (客隊 @ 主隊)</label>
+          <select id="odds-game" style="width:100%;padding:6px 8px;font-family:'Share Tech Mono';font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+            <option value="">— 選擇比賽 —</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:100px;">
+          <label style="font-family:'Share Tech Mono';font-size:10px;color:var(--muted);display:block;margin-bottom:4px;">主隊讓分</label>
+          <input id="odds-spread" type="number" step="0.5" placeholder="-3.5" style="width:100%;padding:6px 8px;font-family:'Share Tech Mono';font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+        </div>
+        <div style="flex:1;min-width:100px;">
+          <label style="font-family:'Share Tech Mono';font-size:10px;color:var(--muted);display:block;margin-bottom:4px;">大小分 (O/U)</label>
+          <input id="odds-ou" type="number" step="0.5" placeholder="226.5" style="width:100%;padding:6px 8px;font-family:'Share Tech Mono';font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+        </div>
+        <button onclick="submitOdds()" style="padding:6px 16px;font-family:'Share Tech Mono';font-size:12px;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:700;">儲存</button>
+      </div>
+      <div id="odds-status" style="font-family:'Share Tech Mono';font-size:10px;color:var(--muted);margin-top:8px;"></div>
+      <div id="odds-list" style="margin-top:10px;font-family:'Share Tech Mono';font-size:11px;color:var(--muted);"></div>
     </div>
   </section>
 
@@ -998,28 +1029,23 @@ function renderEdges(edges) {
 
 // ─── Show error ───────────────────────────────────────────────────
 // ─── Render: Taiwan Sports Lottery vs Model ───────────────────────
-function renderTWLottery(games) {
+function renderTWLottery(games, oddsMap) {
   const grid = document.getElementById('tw-lottery-grid');
   if (!games || games.length === 0) {
     grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-family:Share Tech Mono;">No games today</div>';
     return;
   }
 
-  // Taiwan lottery odds (hardcoded for today — ideally fetched from API)
-  const twOdds = {
-    'Atlanta Hawks': { spread: -1.5, spreadOdds: 1.73, ou: 226.5, opponent: 'New York Knicks' },
-    'Orlando Magic': { spread: 1.5, spreadOdds: 1.70, ou: 222.5, opponent: 'Detroit Pistons' },
-    'San Antonio Spurs': { spread: -8.5, spreadOdds: 1.70, ou: 236.5, opponent: 'Philadelphia 76ers' },
-    'Memphis Grizzlies': { spread: 13.5, spreadOdds: 1.70, ou: 231.5, opponent: 'Cleveland Cavaliers' },
-    'Denver Nuggets': { spread: -7.5, spreadOdds: 1.70, ou: 236.5, opponent: 'Portland Trail Blazers' },
-  };
+  const twOddsMap = oddsMap || window._twOddsMap || {};
 
   grid.innerHTML = games.map(g => {
     const homeProb = g.home_prob;
     const awayProb = g.away_prob;
     const winner = homeProb > awayProb ? g.home : g.away;
     const winnerProb = Math.max(homeProb, awayProb);
-    const tw = twOdds[g.home] || null;
+    // Look up real odds by "Away @ Home" key
+    const oddsKey = g.away + ' @ ' + g.home;
+    const tw = twOddsMap[oddsKey] || null;
 
     // Calculate implied probability from spread
     let spreadImplied = 50;
@@ -1129,6 +1155,150 @@ function renderTWLottery(games) {
           <span class="tw-val">${modelEdge.toFixed(1)}% <span class="tw-edge-badge ${edgeCls}">${edgeLabel}</span></span>
         </div>
 
+        <div class="tw-verdict ${verdictCls}">${verdictText}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Render: Next Games TW Lottery ──────────────────────────────
+function renderNextTWLottery(games, oddsMap) {
+  const grid = document.getElementById('next-tw-lottery-grid');
+  if (!grid) return;
+  if (!games || games.length === 0) {
+    grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-family:Share Tech Mono;">暫無下一輪資料</div>';
+    return;
+  }
+
+  const twOddsMap = oddsMap || window._twOddsMap || {};
+
+  grid.innerHTML = games.map(g => {
+    const homeProb = g.home_prob;
+    const awayProb = g.away_prob;
+    const winner = homeProb > awayProb ? g.home : g.away;
+    const winnerProb = Math.max(homeProb, awayProb);
+    const predSpread = g.pred_spread || 0;
+    const predTotal = g.pred_total || 0;
+
+    // Look up real odds
+    const oddsKey = g.away + ' @ ' + g.home;
+    const tw = twOddsMap[oddsKey] || null;
+    const hasRealOdds = tw && (tw.spread || tw.ou);
+
+    // Spread implied probability
+    let spreadImplied = 50;
+    let spreadText = '尚未開盤';
+    let ouText = '尚未開盤';
+    if (hasRealOdds) {
+      if (tw.spread != null) {
+        const sign = tw.spread > 0 ? '+' : '';
+        spreadText = g.home.split(' ').pop() + ' ' + sign + tw.spread;
+        // Implied: convert spread to probability (~2.5% per point)
+        spreadImplied = 50 + tw.spread * 2.5;
+        spreadImplied = Math.max(10, Math.min(90, spreadImplied));
+      }
+      if (tw.ou) ouText = tw.ou + ' 分';
+    }
+
+    // Edge calculation
+    const modelEdge = hasRealOdds ? winnerProb - spreadImplied : 0;
+    let edgeLabel = '', edgeCls = 'small';
+    if (hasRealOdds) {
+      if (Math.abs(modelEdge) > 20) { edgeCls = 'huge'; edgeLabel = '超大 Edge'; }
+      else if (Math.abs(modelEdge) > 10) { edgeCls = 'big'; edgeLabel = '大 Edge'; }
+      else if (Math.abs(modelEdge) > 3) { edgeCls = 'mid'; edgeLabel = '中 Edge'; }
+      else { edgeCls = 'small'; edgeLabel = '小 Edge'; }
+    }
+
+    // Stars + verdict
+    let stars, starText, headerCls, verdictCls, verdictText;
+    if (hasRealOdds && modelEdge > 15 && winnerProb > 65) {
+      stars = '⭐⭐⭐'; starText = '強力推薦';
+      headerCls = 'strong'; verdictCls = 'buy';
+      verdictText = '✅ <b>強力推薦</b> — 模型 ' + winnerProb.toFixed(0) + '% vs 運彩隱含 ' + spreadImplied.toFixed(0) + '%，edge ' + modelEdge.toFixed(0) + '%';
+    } else if (hasRealOdds && modelEdge > 8 && winnerProb > 58) {
+      stars = '⭐⭐'; starText = '推薦';
+      headerCls = 'good'; verdictCls = 'buy';
+      verdictText = '👍 <b>推薦</b> — ' + winner.split(' ').pop() + ' 有明確 edge（模型 vs 盤口差 ' + modelEdge.toFixed(0) + '%）';
+    } else if (winnerProb >= 65) {
+      stars = '⭐⭐'; starText = '推薦';
+      headerCls = 'good'; verdictCls = 'buy';
+      verdictText = '👍 <b>推薦</b> — ' + winner.split(' ').pop() + ' 勝率 ' + winnerProb.toFixed(0) + '%' + (hasRealOdds ? '' : '（等運彩開盤再確認）');
+    } else if (winnerProb >= 58) {
+      stars = '⭐'; starText = '可考慮';
+      headerCls = 'good'; verdictCls = 'caution';
+      verdictText = '🤔 <b>可考慮</b> — 有小幅優勢' + (hasRealOdds ? '，edge ' + modelEdge.toFixed(0) + '%' : '');
+    } else {
+      stars = '—'; starText = '觀望';
+      headerCls = 'risky'; verdictCls = 'skip';
+      verdictText = '⏸️ <b>觀望</b> — 勝率接近五五開，風險較大';
+    }
+
+    const b2bHome = g.b2b_home ? ' <span style="color:var(--down);font-size:10px;">[B2B]</span>' : '';
+    const b2bAway = g.b2b_away ? ' <span style="color:var(--down);font-size:10px;">[B2B]</span>' : '';
+
+    return `
+    <div class="tw-card">
+      <div class="tw-card-header ${headerCls}">
+        <div>
+          <div class="tw-matchup">${g.away}${b2bAway} @ ${g.home}${b2bHome}</div>
+          <div style="font-family:'Share Tech Mono';font-size:10px;color:var(--muted);margin-top:2px;">
+            ${g.away_record || ''} vs ${g.home_record || ''}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="tw-stars">${stars}</div>
+          <div style="font-family:'Share Tech Mono';font-size:10px;color:var(--muted);">${starText}</div>
+        </div>
+      </div>
+      <div class="tw-card-body">
+        <div class="tw-model-bar">
+          <div class="tw-bar-away" style="width:${awayProb}%">${g.away.split(' ').pop()} ${awayProb.toFixed(0)}%</div>
+          <div class="tw-bar-home" style="width:${homeProb}%">${g.home.split(' ').pop()} ${homeProb.toFixed(0)}%</div>
+        </div>
+
+        <div class="tw-row">
+          <span class="tw-label">🇹🇼 運彩讓分</span>
+          <span class="tw-val" style="font-weight:${hasRealOdds ? '900' : '400'};color:${hasRealOdds ? 'var(--text)' : 'var(--muted)'};">${spreadText}</span>
+        </div>
+        <div class="tw-row">
+          <span class="tw-label">🇹🇼 運彩大小</span>
+          <span class="tw-val" style="font-weight:${hasRealOdds ? '900' : '400'};color:${hasRealOdds ? 'var(--text)' : 'var(--muted)'};">O/U ${ouText}</span>
+        </div>
+        <div class="tw-row">
+          <span class="tw-label">模型勝率</span>
+          <span class="tw-val" style="color:var(--up);font-weight:900;">${winner.split(' ').pop()} <b>${winnerProb.toFixed(1)}%</b></span>
+        </div>
+        <div class="tw-row">
+          <span class="tw-label">模型預測分差</span>
+          <span class="tw-val" style="color:${predSpread > 0 ? 'var(--up)' : 'var(--down)'}; font-weight:900;">
+            預測 ${predSpread > 0 ? g.home.split(' ').pop() : g.away.split(' ').pop()} 勝出 +${Math.abs(predSpread).toFixed(1)} pts
+          </span>
+        </div>
+        <div class="tw-row">
+          <span class="tw-label">模型預測總分</span>
+          <span class="tw-val" style="font-weight:900;color:var(--accent);">
+            ${predTotal ? predTotal.toFixed(1) : 'N/A'}
+            ${hasRealOdds && tw.ou && predTotal ? (predTotal > tw.ou
+              ? ' <span style="color:var(--up);font-size:10px;">▲ 看大</span>'
+              : ' <span style="color:var(--down);font-size:10px;">▼ 看小</span>') : ''}
+          </span>
+        </div>
+        ${hasRealOdds ? `
+        <div class="tw-row">
+          <span class="tw-label">運彩隱含勝率</span>
+          <span class="tw-val">${spreadImplied.toFixed(0)}%</span>
+        </div>
+        <div class="tw-row">
+          <span class="tw-label">Edge</span>
+          <span class="tw-val">${modelEdge.toFixed(1)}% <span class="tw-edge-badge ${edgeCls}">${edgeLabel}</span></span>
+        </div>` : ''}
+        <div class="tw-row">
+          <span class="tw-label">Elo 評分</span>
+          <span class="tw-val">${g.away.split(' ').pop()} ${g.away_elo || '—'} vs ${g.home.split(' ').pop()} ${g.home_elo || '—'}</span>
+        </div>
+
+        ${renderInjuryBadge(g)}
         <div class="tw-verdict ${verdictCls}">${verdictText}</div>
       </div>
     </div>`;
@@ -1451,16 +1621,29 @@ async function loadNBA() {
     }
     window._loadedGames = data.games || [];
     window._loadedBacktest = data.backtest || null;
+
+    // Fetch real TW lottery odds
+    let twOddsMap = {};
+    try {
+      const oddsR = await fetch('/api/nba/odds');
+      if (oddsR.ok) {
+        const oddsData = await oddsR.json();
+        twOddsMap = oddsData.odds || {};
+      }
+    } catch(e) {}
+    window._twOddsMap = twOddsMap;
+
     renderGames(window._loadedGames);
-    // Show today's date label
     const tdl = document.getElementById('today-date-label');
     if (tdl) { const now = new Date(); tdl.textContent = '(' + (now.getMonth()+1) + '/' + now.getDate() + ')'; }
-    renderEloRankings(data.elo_teams || {});
-    renderTWLottery(window._loadedGames);
-    renderBacktest(data.backtest);
-    renderWinRates(data.backtest, window._loadedGames);
-    renderNextGames(data.next_games || [], data.next_games_date || '');
-    renderEdges(data.edges || []);
+    window._loadedNextGames = data.next_games || [];
+    try { renderNextGames(window._loadedNextGames, data.next_games_date || ''); } catch(e) { console.error('renderNextGames error:', e); }
+    try { renderNextTWLottery(window._loadedNextGames, twOddsMap); } catch(e) { console.error('renderNextTWLottery error:', e); }
+    try { renderEloRankings(data.elo_teams || {}); } catch(e) { console.error('renderEloRankings error:', e); }
+    try { renderTWLottery(window._loadedGames, twOddsMap); } catch(e) { console.error('renderTWLottery error:', e); }
+    try { renderBacktest(data.backtest); } catch(e) { console.error('renderBacktest error:', e); }
+    try { renderWinRates(data.backtest, window._loadedGames); } catch(e) { console.error('renderWinRates error:', e); }
+    try { renderEdges(data.edges || []); } catch(e) { console.error('renderEdges error:', e); }
     updateTimestamp();
     startCountdown();
   } catch (err) {
@@ -1470,9 +1653,68 @@ async function loadNBA() {
   }
 }
 
+// ─── Odds Input ──────────────────────────────────────────────────
+function populateOddsDropdown() {
+  const sel = document.getElementById('odds-game');
+  if (!sel) return;
+  const allGames = [...(window._loadedGames || []), ...(window._loadedNextGames || [])];
+  sel.innerHTML = '<option value="">— 選擇比賽 —</option>';
+  allGames.forEach(g => {
+    const key = g.away + ' @ ' + g.home;
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = key;
+    sel.appendChild(opt);
+  });
+  // Show existing odds
+  refreshOddsList();
+}
+
+function refreshOddsList() {
+  const list = document.getElementById('odds-list');
+  if (!list) return;
+  const m = window._twOddsMap || {};
+  const keys = Object.keys(m);
+  if (keys.length === 0) { list.innerHTML = '尚無已輸入的盤口'; return; }
+  list.innerHTML = '<b>已輸入盤口：</b><br>' + keys.map(k => {
+    const o = m[k];
+    return `${k} → 讓分: ${o.spread || '—'} | O/U: ${o.ou || '—'}`;
+  }).join('<br>');
+}
+
+async function submitOdds() {
+  const game = document.getElementById('odds-game').value;
+  const spread = parseFloat(document.getElementById('odds-spread').value);
+  const ou = parseFloat(document.getElementById('odds-ou').value);
+  const status = document.getElementById('odds-status');
+  if (!game) { status.textContent = '請選擇比賽'; return; }
+  if (isNaN(spread) && isNaN(ou)) { status.textContent = '請輸入讓分或大小分'; return; }
+
+  try {
+    const r = await fetch('/api/nba/odds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: game, spread: spread || 0, ou: ou || 0, updated: new Date().toISOString() }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      status.innerHTML = '<span style="color:var(--up);">✅ 已儲存 — 重新載入中...</span>';
+      // Clear inputs
+      document.getElementById('odds-spread').value = '';
+      document.getElementById('odds-ou').value = '';
+      // Reload to apply
+      setTimeout(() => loadNBA(), 500);
+    } else {
+      status.textContent = '錯誤: ' + (d.error || 'unknown');
+    }
+  } catch(e) {
+    status.textContent = '儲存失敗: ' + e.message;
+  }
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadNBA();
+  loadNBA().then(() => populateOddsDropdown());
   startScoreRefresh();
 });
 </script>
