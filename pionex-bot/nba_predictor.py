@@ -441,12 +441,22 @@ def build_features(
     b2b_b: bool = False,
     recent_form_a: float = 0.5,
     recent_form_b: float = 0.5,
+    recent_form_a10: float = 0.5,
+    recent_form_b10: float = 0.5,
+    elo_momentum_a: float = 0.0,
+    elo_momentum_b: float = 0.0,
+    rest_days_a: int = 1,
+    rest_days_b: int = 1,
 ) -> dict[str, float]:
     """Build feature vector for a matchup."""
     elo_a = elo.ratings.get(team_a, 1500.0)
     elo_b = elo.ratings.get(team_b, 1500.0)
     sa = team_stats.get(team_a, {})
     sb = team_stats.get(team_b, {})
+
+    # Net rating = offensive efficiency - defensive efficiency
+    net_a = sa.get("ppg", 105.0) - sa.get("oppg", 105.0)
+    net_b = sb.get("ppg", 105.0) - sb.get("oppg", 105.0)
 
     return {
         "elo_diff": elo_a - elo_b,
@@ -461,17 +471,33 @@ def build_features(
         "oppg_b": sb.get("oppg", 105.0),
         "diff_a": sa.get("diff", 0.0),
         "diff_b": sb.get("diff", 0.0),
+        # Net rating (offensive - defensive efficiency)
+        "net_rating_a": net_a,
+        "net_rating_b": net_b,
+        "net_rating_diff": net_a - net_b,
         "streak_a": float(sa.get("streak", 0)),
         "streak_b": float(sb.get("streak", 0)),
         "b2b_a": 1.0 if b2b_a else 0.0,
         "b2b_b": 1.0 if b2b_b else 0.0,
-        "b2b_adv": (1.0 if b2b_b else 0.0) - (1.0 if b2b_a else 0.0),  # +1 = opponent B2B advantage
-        "both_b2b": 1.0 if (b2b_a and b2b_b) else 0.0,  # neutralizer
+        "b2b_adv": (1.0 if b2b_b else 0.0) - (1.0 if b2b_a else 0.0),
+        "both_b2b": 1.0 if (b2b_a and b2b_b) else 0.0,
         "home_away": 1.0 if is_home else 0.0,
-        # Recent form (momentum) — last-5 games win ratio
+        # Recent form — last-5 AND last-10 games win ratio
         "recent_form_a": recent_form_a,
         "recent_form_b": recent_form_b,
         "recent_form_diff": recent_form_a - recent_form_b,
+        # Extended momentum (10-game window — less noisy)
+        "recent_form_10_a": recent_form_a10,
+        "recent_form_10_b": recent_form_b10,
+        "recent_form_10_diff": recent_form_a10 - recent_form_b10,
+        # ELO momentum: change in ELO over last 10 games
+        "elo_momentum_a": elo_momentum_a,
+        "elo_momentum_b": elo_momentum_b,
+        "elo_momentum_diff": elo_momentum_a - elo_momentum_b,
+        # Rest days (continuous, not just binary)
+        "rest_days_a": rest_days_a,
+        "rest_days_b": rest_days_b,
+        "rest_advantage": rest_days_a - rest_days_b,
     }
 
 
@@ -504,6 +530,8 @@ class NBAPredictor:
         self.rmse = 12.0  # Default RMSE for NBA point spreads
         # Rolling recent form: team -> list of 0/1 (win=1) from most recent to oldest
         self.recent_forms: dict[str, list[int]] = {}
+        # ELO history: team -> list of ELO ratings (oldest first, updated after each game)
+        self._elo_history: dict[str, list[float]] = {}
 
     def _get_recent_form(self, team: str, n: int = 5) -> float:
         """Return win ratio over last n games. Returns 0.5 if no history."""
@@ -529,6 +557,8 @@ class NBAPredictor:
         last_game: dict[str, str] = {}  # team -> date_str
         # recent forms: team -> rolling list of 0/1 wins (filled as we process)
         self.recent_forms: dict[str, list[int]] = {}
+        # ELO history: team -> list of ELO ratings at each game (for momentum)
+        self._elo_history: dict[str, list[float]] = {}
 
         for g in sorted_games:
             date_obj = datetime.strptime(g["date"], "%Y%m%d")
@@ -543,14 +573,29 @@ class NBAPredictor:
                 (date_obj - datetime.strptime(last_game[g["team_b"]], "%Y%m%d")).days == 1
             )
 
-            # Recent form features — use already-updated rolling history
-            recent_a = self._get_recent_form(g["team_a"], n=5)
-            recent_b = self._get_recent_form(g["team_b"], n=5)
+            # Rest days (continuous)
+            rest_a = (date_obj - datetime.strptime(last_game[g["team_a"]], "%Y%m%d")).days if g["team_a"] in last_game else 99
+            rest_b = (date_obj - datetime.strptime(last_game[g["team_b"]], "%Y%m%d")).days if g["team_b"] in last_game else 99
+
+            # Recent form: 5-game AND 10-game windows
+            recent_a5 = self._get_recent_form(g["team_a"], n=5)
+            recent_b5 = self._get_recent_form(g["team_b"], n=5)
+            recent_a10 = self._get_recent_form(g["team_a"], n=10)
+            recent_b10 = self._get_recent_form(g["team_b"], n=10)
+
+            # ELO momentum: ELO change over last 10 games
+            elo_hist_a = self._elo_history.get(g["team_a"], [])
+            elo_hist_b = self._elo_history.get(g["team_b"], [])
+            elo_mom_a = (elo_hist_a[-1] - elo_hist_a[-10]) if len(elo_hist_a) >= 10 else 0.0
+            elo_mom_b = (elo_hist_b[-1] - elo_hist_b[-10]) if len(elo_hist_b) >= 10 else 0.0
 
             feats = build_features(
                 g["team_a"], g["team_b"], self.team_stats, self.elo,
                 is_home=True, b2b_a=b2b_a, b2b_b=b2b_b,
-                recent_form_a=recent_a, recent_form_b=recent_b,
+                recent_form_a=recent_a5, recent_form_b=recent_b5,
+                recent_form_a10=recent_a10, recent_form_b10=recent_b10,
+                elo_momentum_a=elo_mom_a, elo_momentum_b=elo_mom_b,
+                rest_days_a=rest_a, rest_days_b=rest_b,
             )
             X.append(list(feats.values()))
 
@@ -560,13 +605,11 @@ class NBAPredictor:
             self.feature_names = list(feats.keys())
 
             # Update rolling form: team_a win/loss from team_a perspective
-            # (team_a is home in this dataset — use actual home_score comparison)
             a_is_home = g.get("team_a") == g.get("home_team", g["team_a"])
             if a_is_home:
                 a_result = 1 if g["home_score"] > g["away_score"] else 0
                 b_result = 1 - a_result
             else:
-                # team_a was away
                 b_result = 1 if g["home_score"] > g["away_score"] else 0
                 a_result = 1 - b_result
 
@@ -574,9 +617,16 @@ class NBAPredictor:
                 if _t not in self.recent_forms:
                     self.recent_forms[_t] = []
                 self.recent_forms[_t].append(_r)
-                # Keep rolling window to 20 (handles both 5 and 10 game windows)
                 if len(self.recent_forms[_t]) > 20:
                     self.recent_forms[_t] = self.recent_forms[_t][-20:]
+
+            # Update ELO history
+            for _t in (g["team_a"], g["team_b"]):
+                if _t not in self._elo_history:
+                    self._elo_history[_t] = []
+                self._elo_history[_t].append(self.elo.ratings.get(_t, 1500.0))
+                if len(self._elo_history[_t]) > 20:
+                    self._elo_history[_t] = self._elo_history[_t][-20:]
 
             # Update last game date
             last_game[g["team_a"]] = g["date"]
@@ -590,18 +640,21 @@ class NBAPredictor:
         y_arr = np.array(y)
 
         dtrain = xgb.DMatrix(X_arr, label=y_arr, feature_names=self.feature_names)
-        # Binary classification — predict P(team_a wins)
+        # Binary classification — deeper tree + stronger regularization
         params = {
             "objective": "binary:logistic",
             "eval_metric": "logloss",
-            "max_depth": 5,
-            "eta": 0.05,
-            "subsample": 0.8,
-            "colsample_bytree": 0.8,
+            "max_depth": 6,
+            "eta": 0.03,
+            "subsample": 0.75,
+            "colsample_bytree": 0.75,
+            "lambda": 3.0,     # L2 regularization
+            "alpha": 0.5,      # L1 regularization
+            "min_child_weight": 5,
             "scale_pos_weight": 1,
             "verbosity": 0,
         }
-        self.model = xgb.train(params, dtrain, num_boost_round=200)
+        self.model = xgb.train(params, dtrain, num_boost_round=400)
 
         # Feature importance
         importance = self.model.get_score(importance_type="weight")
@@ -619,32 +672,41 @@ class NBAPredictor:
         print(f"\n  Training LogLoss: {logloss:.4f}  |  Binary Accuracy: {binary_acc*100:.1f}%")
 
     def predict(self, team_a: str, team_b: str, is_home: bool = True,
-                b2b_a: bool = False, b2b_b: bool = False) -> float:
+                b2b_a: bool = False, b2b_b: bool = False,
+                rest_days_a: int = 3, rest_days_b: int = 3) -> float:
         """Predict WIN PROBABILITY for team_a.
         Blends XGBoost binary-classifier probability (when available) with
         Elo-based probability for robustness.
         """
         if self.model is not None and self.feature_names:
             # Use XGBoost binary classifier — P(team_a wins)
-            recent_a = self._get_recent_form(team_a, n=5)
-            recent_b = self._get_recent_form(team_b, n=5)
+            recent_a5 = self._get_recent_form(team_a, n=5)
+            recent_b5 = self._get_recent_form(team_b, n=5)
+            recent_a10 = self._get_recent_form(team_a, n=10)
+            recent_b10 = self._get_recent_form(team_b, n=10)
+            # ELO momentum from history
+            elo_hist_a = self._elo_history.get(team_a, [])
+            elo_hist_b = self._elo_history.get(team_b, [])
+            elo_mom_a = (elo_hist_a[-1] - elo_hist_a[-10]) if len(elo_hist_a) >= 10 else 0.0
+            elo_mom_b = (elo_hist_b[-1] - elo_hist_b[-10]) if len(elo_hist_b) >= 10 else 0.0
+
             feats = build_features(
                 team_a, team_b, self.team_stats, self.elo,
                 is_home=is_home, b2b_a=b2b_a, b2b_b=b2b_b,
-                recent_form_a=recent_a, recent_form_b=recent_b,
+                recent_form_a=recent_a5, recent_form_b=recent_b5,
+                recent_form_a10=recent_a10, recent_form_b10=recent_b10,
+                elo_momentum_a=elo_mom_a, elo_momentum_b=elo_mom_b,
+                rest_days_a=rest_days_a, rest_days_b=rest_days_b,
             )
             xgb = _ensure_xgboost()
             X = np.array([list(feats.values())])
             dtest = xgb.DMatrix(X, feature_names=self.feature_names)
             xgb_prob = float(self.model.predict(dtest)[0])
-            # Fallback: clamp
             xgb_prob = max(0.01, min(0.99, xgb_prob))
 
-            # Elo-based reference probability
             elo_prob = self.margin_to_prob(
                 self._elo_margin(team_a, team_b, is_home), 0
             )
-            # Blend: 50% XGBoost / 50% Elo for stability
             return 0.5 * xgb_prob + 0.5 * elo_prob
 
         # No model: pure Elo
@@ -670,17 +732,6 @@ class NBAPredictor:
         """
         elo_margin = self._elo_margin(team_a, team_b, is_home)
 
-        # Scale home advantage by team quality
-        # Good teams (Elo > 1550) get full +100, bad teams (Elo < 1400) get reduced +60
-        if is_home:
-            quality = max(0, min(1, (elo_a - 1350) / 250))  # 0.0 (1350-) to 1.0 (1600+)
-            h_adj = 60 + 40 * quality  # Range: 60 (bad) to 100 (good)
-        else:
-            h_adj = 0
-
-        # Elo-based margin: ~28 Elo points per 1 point of spread
-        elo_margin = (elo_a - elo_b + h_adj) / 28.0
-
         # Adjust with team stats if available
         sa = self.team_stats.get(team_a, {})
         sb = self.team_stats.get(team_b, {})
@@ -688,8 +739,10 @@ class NBAPredictor:
         diff_b = sb.get("diff", 0)
 
         if diff_a != 0 or diff_b != 0:
-            # Scale home court for stats_margin too
-            home_pts = (h_adj / 100) * 3.5 if is_home else 0
+            elo_a = self.elo.ratings.get(team_a, 1500)
+            # Quality-scaled home advantage
+            quality = max(0, min(1, (elo_a - 1350) / 250))
+            home_pts = ((60 + 40 * quality) / 100) * 3.5 if is_home else 0
             stats_margin = (diff_a - diff_b) / 2 + home_pts
             return elo_margin * 0.6 + stats_margin * 0.4
         return elo_margin
@@ -711,7 +764,8 @@ class NBAPredictor:
             "feature_names": self.feature_names,
             "has_model": self.model is not None,
             "rmse": self.rmse,
-            "recent_forms": {k: v for k, v in self.recent_forms.items()},  # serialize
+            "recent_forms": {k: v for k, v in self.recent_forms.items()},
+            "elo_history": {k: v for k, v in self._elo_history.items()},
             "saved_at": datetime.now().isoformat(),
         }
         path.write_text(json.dumps(state, indent=2), encoding="utf-8")
@@ -734,6 +788,8 @@ class NBAPredictor:
             # Restore recent forms (map int keys from JSON if needed)
             raw_rf = state.get("recent_forms", {})
             self.recent_forms = {k: list(v) for k, v in raw_rf.items()}
+            raw_eh = state.get("elo_history", {})
+            self._elo_history = {k: list(v) for k, v in raw_eh.items()}
             # Load xgboost model if available
             model_bin = path.with_suffix(".xgb")
             if state.get("has_model") and model_bin.exists() and self.feature_names:
@@ -1161,7 +1217,6 @@ def cmd_backtest(predictor: NBAPredictor, days: int, limit: int | None = None):
     print("  BACKTEST -- Walk-forward XGBoost Prediction")
     print("=" * 70)
 
-    # Fetch extra days for warm-up
     all_games = fetch_espn_results(days + 30)
     if not all_games:
         print("\n  No game data for backtesting.")
@@ -1169,16 +1224,15 @@ def cmd_backtest(predictor: NBAPredictor, days: int, limit: int | None = None):
 
     sorted_games = sorted(all_games, key=lambda x: x["date"])
     standings = fetch_espn_standings()
-    
+
     test_start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
     train_games = [g for g in sorted_games if g["date"] < test_start_date]
     test_games = [g for g in sorted_games if g["date"] >= test_start_date]
-    
+
     if not train_games:
         train_games = sorted_games[:len(sorted_games)//2]
         test_games = sorted_games[len(sorted_games)//2:]
 
-    # Apply limit if specified (last N games)
     if limit and len(test_games) > limit:
         test_games = test_games[-limit:]
 
@@ -1188,68 +1242,99 @@ def cmd_backtest(predictor: NBAPredictor, days: int, limit: int | None = None):
     # Initial setup
     elobot = EloSystem()
     last_game: dict[str, str] = {}
+    elo_history: dict[str, list[float]] = {}
     for g in train_games:
         elobot.update(g["winner"], g["loser"], g["team_a"])
         last_game[g["team_a"]] = g["date"]
         last_game[g["team_b"]] = g["date"]
+        for _t in (g["team_a"], g["team_b"]):
+            if _t not in elo_history:
+                elo_history[_t] = []
+            elo_history[_t].append(elobot.ratings.get(_t, 1500.0))
 
     predictor.elo = elobot
+    # Give predictor a copy of elo_history for momentum features
+    predictor._elo_history = {k: list(v) for k, v in elo_history.items()}
     predictor.train(train_games, standings)
 
-    predictions: list[float] = [] # win probs
-    outcomes: list[int] = [] # win/loss
-    ae_list: list[float] = [] # absolute errors
     correct = 0
     total = 0
+    strong_correct = 0
+    strong_total = 0
 
     from collections import defaultdict
     games_by_date = defaultdict(list)
     for g in test_games:
         games_by_date[g["date"]].append(g)
-    
+
     sorted_dates = sorted(games_by_date.keys())
-    
+
     for date_str in sorted_dates:
         day_games = games_by_date[date_str]
         date_obj = datetime.strptime(date_str, "%Y%m%d")
-        
+
         for g in day_games:
-            b2b_a = (g["team_a"] in last_game and 
+            b2b_a = (g["team_a"] in last_game and
                      (date_obj - datetime.strptime(last_game[g["team_a"]], "%Y%m%d")).days == 1)
-            b2b_b = (g["team_b"] in last_game and 
+            b2b_b = (g["team_b"] in last_game and
                      (date_obj - datetime.strptime(last_game[g["team_b"]], "%Y%m%d")).days == 1)
-            
-            proj_margin = predictor.predict_margin(g["team_a"], g["team_b"], is_home=True, b2b_a=b2b_a, b2b_b=b2b_b)
-            actual_margin = g["home_score"] - g["away_score"]
-            prob = predictor.margin_to_prob(proj_margin, 0)
-            actual_win = 1 if actual_margin > 0 else 0
-            
-            predictions.append(prob)
-            outcomes.append(actual_win)
-            ae_list.append(abs(proj_margin - actual_margin))
-            
-            if (proj_margin > 0 and actual_margin > 0) or (proj_margin <= 0 and actual_margin <= 0):
+            rest_a = (date_obj - datetime.strptime(last_game[g["team_a"]], "%Y%m%d")).days if g["team_a"] in last_game else 99
+            rest_b = (date_obj - datetime.strptime(last_game[g["team_b"]], "%Y%m%d")).days if g["team_b"] in last_game else 99
+
+            # Use the new predict() with all new features
+            prob = predictor.predict(g["team_a"], g["team_b"], is_home=True,
+                                   b2b_a=b2b_a, b2b_b=b2b_b,
+                                   rest_days_a=rest_a, rest_days_b=rest_b)
+            actual_win = 1 if (g["home_score"] - g["away_score"]) > 0 else 0
+            conf = max(prob, 1 - prob)
+            pred_win = 1 if prob > 0.5 else 0
+
+            if pred_win == actual_win:
                 correct += 1
             total += 1
-            
+            if conf > 0.70:
+                strong_total += 1
+                if pred_win == actual_win:
+                    strong_correct += 1
+
         # Update state after the day's games
         for g in day_games:
             predictor.elo.update(g["winner"], g["loser"], g["team_a"])
             train_games.append(g)
             last_game[g["team_a"]] = g["date"]
             last_game[g["team_b"]] = g["date"]
-            
-        # Retrain for next day
+            for _t in (g["team_a"], g["team_b"]):
+                if _t not in elo_history:
+                    elo_history[_t] = []
+                elo_history[_t].append(predictor.elo.ratings.get(_t, 1500.0))
+                if len(elo_history[_t]) > 20:
+                    elo_history[_t] = elo_history[_t][-20:]
+
+        predictor._elo_history = {k: list(v) for k, v in elo_history.items()}
         predictor.train(train_games, standings)
 
     accuracy = correct / total if total > 0 else 0
-    mae = sum(ae_list) / len(ae_list) if ae_list else 0
+    strong_acc = strong_correct / strong_total if strong_total > 0 else 0
 
-    print(f"\n✅ Final Regression Results:")
-    print(f"  Games evaluated: {total}")
-    print(f"  Win Prediction Accuracy: {accuracy*100:.1f}%")
-    print(f"  Mean Absolute Error (MAE): {mae:.2f} points")
-    print(f"  Final Model RMSE: {predictor.rmse:.2f} points")
+    print(f"\n✅ Walk-forward Backtest Results:")
+    print(f"  Games evaluated:    {total}")
+    print(f"  Overall Accuracy:   {accuracy*100:.1f}%")
+    print(f"  Strong (conf>70%): {strong_acc*100:.1f}% ({strong_total} games)")
+
+    # Save to state file for dashboard
+    STATE_DIR.mkdir(exist_ok=True)
+    bt_path = STATE_DIR / "nba_backtest.json"
+    import json as _json2
+    bt_data = {
+        "accuracy": round(accuracy * 100, 1),
+        "games": total,
+        "strong_accuracy": round(strong_acc * 100, 1),
+        "strong_games": strong_total,
+        "date": datetime.now().strftime("%Y-%m-%d"),
+    }
+    with open(bt_path, "w", encoding="utf-8") as f:
+        _json2.dump(bt_data, f, indent=2)
+    print(f"\n  Saved to {bt_path}")
     print()
 
 
@@ -1586,11 +1671,21 @@ def main():
             def _wr(w, t):
                 return round(w / t * 100, 1) if t > 0 else 0
 
+            # Try to load the saved walk-forward backtest (from --backtest run)
+            bt_path = STATE_DIR / "nba_backtest.json"
+            saved_bt = None
+            if bt_path.exists():
+                try:
+                    saved_bt = json.loads(bt_path.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+
             output["backtest"] = {
-                "games_tested": bt_results["total"],
-                "all_wr": _wr(bt_results["correct"], bt_results["total"]),
-                "strong_count": bt_results["strong"],
-                "strong_wr": _wr(bt_results["strong_correct"], bt_results["strong"]),
+                # Use saved walk-forward backtest result if available
+                "games_tested": saved_bt.get("games", bt_results["total"]) if saved_bt else bt_results["total"],
+                "all_wr": saved_bt.get("accuracy", _wr(bt_results["correct"], bt_results["total"])) if saved_bt else _wr(bt_results["correct"], bt_results["total"]),
+                "strong_count": saved_bt.get("strong_games", bt_results["strong"]) if saved_bt else bt_results["strong"],
+                "strong_wr": saved_bt.get("strong_accuracy", _wr(bt_results["strong_correct"], bt_results["strong"])) if saved_bt else _wr(bt_results["strong_correct"], bt_results["strong"]),
                 "vstrong_count": bt_results["vstrong"],
                 "vstrong_wr": _wr(bt_results["vstrong_correct"], bt_results["vstrong"]),
                 "star3_count": bt_results["star3"],
@@ -1605,6 +1700,8 @@ def main():
 
     if args.train:
         cmd_train(predictor, args.days)
+        # Also run backtest to update the dashboard stats
+        cmd_backtest(predictor, args.days)
 
     if args.train_spread:
         print("\n  Training spread prediction model...")
