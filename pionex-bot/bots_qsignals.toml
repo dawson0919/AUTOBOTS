@@ -1,0 +1,55 @@
+# Q-SIGNALS driven grid bots — DRY RUN shadow configs.
+# These entries are read by qsignals_bot_manager.py. No orders are placed
+# during dry_run; the manager only logs simulated flip decisions and tracks
+# a virtual P&L against current market price.
+
+[global]
+dry_run = false           # LIVE — will place real orders on Pionex
+interval = "60M"          # Kline interval for signal evaluation
+kline_limit = 300         # Candles per evaluation
+log_level = "INFO"
+grid_rows = 30            # Grid granularity (matches bots.toml norms)
+grid_type = "arithmetic"
+min_hours_between_flips = 2  # Cooldown to avoid whipsaw trading
+
+[bots.qs_btc]
+symbol = "BTC_USDT_PERP"
+investment = "50"
+leverage = 5
+grid_bottom = "60000"
+grid_top = "80000"
+
+[bots.qs_eth]
+symbol = "ETH_USDT_PERP"
+investment = "50"
+leverage = 5
+grid_bottom = "1800"
+grid_top = "3000"
+
+[bots.qs_sol]
+symbol = "SOL_USDT_PERP"
+investment = "50"
+leverage = 5
+grid_bottom = "75"
+grid_top = "120"
+
+[bots.qs_xaut]
+symbol = "XAUT_USDT_PERP"
+investment = "50"
+leverage = 5
+grid_bottom = "4200"
+grid_top = "5000"
+
+[bots.qs_paxg]
+symbol = "PAXG_USDT_PERP"
+investment = "50"
+leverage = 5
+grid_bottom = "4200"
+grid_top = "5000"
+
+[bots.qs_usox]
+symbol = "USOX_USDT_PERP"
+investment = "50"
+leverage = 5
+grid_bottom = "110"
+grid_top = "145"

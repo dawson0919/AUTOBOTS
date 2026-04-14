@@ -381,6 +381,14 @@
     </div>
   </section>
 
+  <!-- ======== Q-SIGNALS VIRTUAL BOTS ======== -->
+  <section>
+    <div class="section-title">Q-SIGNALS Virtual Bots <span style="color:var(--muted);font-size:11px;margin-left:8px;">DRY RUN · 10 策略驅動</span></div>
+    <div class="bot-grid" id="qsBotGrid">
+      <div style="text-align:center;color:var(--muted);padding:40px;font-family:'Share Tech Mono';">Loading Q-SIGNALS bots...</div>
+    </div>
+  </section>
+
   <!-- ======== OPTIMIZATION LEADERBOARD ======== -->
   <section>
     <div class="section-title">4H Optimization Leaderboard — All 11 Symbols</div>
@@ -834,6 +842,7 @@
                 <div class="grid-label mid">\u2014</div>
             </div>
             <div class="chart-container" id="chart-${sym}"></div>
+            <div class="bot-row qs-row" data-bot="${name}"><span class="bot-lbl">Q-SIGNALS</span><span class="bot-val qs-val" style="font-size:11px;">\u2014</span></div>
             <div class="bot-row"><span class="bot-lbl">SMA(${zf})</span><span class="bot-val sma-mini"><span class="sma-dot fast"></span> \u2014</span></div>
             <div class="bot-row"><span class="bot-lbl">SMA(${gy})</span><span class="bot-val sma-mini"><span class="sma-dot mid"></span> \u2014</span></div>
             <div class="bot-row"><span class="bot-lbl">SMA(${lb})</span><span class="bot-val sma-mini"><span class="sma-dot slow"></span> \u2014</span></div>
@@ -1471,6 +1480,96 @@
   // Fetch P&L on load and every 60 seconds
   setTimeout(fetchPnL, 3000);
   setInterval(fetchPnL, 60000);
+
+  // Q-SIGNALS virtual bots — render the dedicated section
+  async function renderQSBots(){
+    const grid = document.getElementById('qsBotGrid');
+    if(!grid) return;
+    try {
+      const r = await fetch('/api/qsignals-bots');
+      if(!r.ok){ grid.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">API error</div>'; return; }
+      const d = await r.json();
+      const bots = d.bots || {};
+      if(!Object.keys(bots).length){ grid.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">No Q-SIGNALS bots configured</div>'; return; }
+
+      const dryRun = d.dry_run ? '<span style="color:var(--warn,#ffaa00);font-weight:700;">DRY RUN</span>' : '<span style="color:var(--down,#ff3366);font-weight:700;">LIVE</span>';
+      let html = '';
+      for(const [name, info] of Object.entries(bots)){
+        const cfg = info.config || {};
+        const st = info.state || {};
+        const sym = cfg.symbol || '?';
+        const dir = st.last_consensus || st.direction || 'FLAT';
+        const dirColor = dir === 'LONG' ? 'var(--up,#00ff88)' : dir === 'SHORT' ? 'var(--down,#ff3366)' : 'var(--muted,#8899aa)';
+        const dirArrow = dir === 'LONG' ? '▲' : dir === 'SHORT' ? '▼' : '─';
+        const price = st.last_price != null ? Number(st.last_price).toLocaleString(undefined,{maximumFractionDigits:4}) : '—';
+        const entry = st.entry_price != null ? Number(st.entry_price).toLocaleString(undefined,{maximumFractionDigits:4}) : '—';
+        const pnl = Number(st.sim_pnl || 0);
+        const pnlColor = pnl >= 0 ? 'var(--up,#00ff88)' : 'var(--down,#ff3366)';
+        const flips = st.flips || 0;
+        const agree = st.last_agree || '—';
+        const lastTs = st.last_ts ? new Date(st.last_ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+
+        html += `
+        <div class="bot-card" style="border-left:4px solid ${dirColor};">
+          <div class="bot-header">
+            <div>
+              <div class="bot-symbol" style="color:var(--accent);">◆ ${name.toUpperCase()}</div>
+              <div class="bot-pair">${sym} · Q-SIGNALS</div>
+            </div>
+            <div>
+              <div class="bot-status">${dryRun}</div>
+              <div class="trend-tag" style="margin-top:6px;background:${dirColor};color:#000;padding:2px 8px;border-radius:3px;font-weight:700;font-size:11px;">${dirArrow} ${dir}</div>
+            </div>
+          </div>
+          <div class="bot-body">
+            <div class="live-price-row">
+              <div>
+                <div class="live-price">$${price}</div>
+                <div class="live-meta">Entry: $${entry}</div>
+              </div>
+              <div style="font-family:Share Tech Mono;font-size:22px;font-weight:900;color:${pnlColor};">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</div>
+            </div>
+            <div class="bot-row"><span class="bot-lbl">Strategy Consensus</span><span class="bot-val" style="color:${dirColor};font-weight:700;">${agree} 同意 ${dir}</span></div>
+            <div class="bot-row"><span class="bot-lbl">Investment</span><span class="bot-val">${cfg.investment || '—'} USDT · ${cfg.leverage || 5}×</span></div>
+            <div class="bot-row"><span class="bot-lbl">Grid Range</span><span class="bot-val">${cfg.grid_bottom} — ${cfg.grid_top}</span></div>
+            <div class="bot-row"><span class="bot-lbl">Sim Flips</span><span class="bot-val">${flips}</span></div>
+            <div class="bot-row"><span class="bot-lbl">Last Update</span><span class="bot-val" style="color:var(--muted);font-size:10px;">${lastTs}</span></div>
+          </div>
+        </div>`;
+      }
+      grid.innerHTML = html;
+    } catch(e) {
+      grid.innerHTML = '<div style="text-align:center;color:var(--down);padding:40px;">Error: ' + e.message + '</div>';
+    }
+  }
+  setTimeout(renderQSBots, 3500);
+  setInterval(renderQSBots, 60000);
+
+  // Q-SIGNALS overlay — update each card with latest consensus
+  async function fetchQSignals(){
+    try {
+      const r = await fetch('/api/qsignals');
+      if(!r.ok) return;
+      const d = await r.json();
+      const bots = d.bots || {};
+      document.querySelectorAll('.qs-row').forEach(row => {
+        const name = row.dataset.bot;
+        const rec = bots[name];
+        const val = row.querySelector('.qs-val');
+        if(!val) return;
+        if(!rec){ val.textContent = '—'; return; }
+        const consensus = rec.qs_consensus || 'FLAT';
+        const agree = rec.agree || 0, total = rec.total || 0;
+        const color = consensus === 'LONG' ? 'var(--up,#00ff88)'
+                    : consensus === 'SHORT' ? 'var(--down,#ff3366)'
+                    : 'var(--muted,#8899aa)';
+        const arrow = consensus === 'LONG' ? '▲' : consensus === 'SHORT' ? '▼' : '─';
+        val.innerHTML = `<span style="color:${color};font-weight:700;">${arrow} ${consensus}</span> <span style="color:var(--muted);font-size:10px;">vs MA=${rec.ma_cross} (${total?total+' strats':'n/a'})</span>`;
+      });
+    } catch(e) { /* ignore */ }
+  }
+  setTimeout(fetchQSignals, 3500);
+  setInterval(fetchQSignals, 60000);
 })();
 </script>
 </body>

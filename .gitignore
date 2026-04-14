@@ -46,3 +46,9 @@ output/autobots-trading/*.pptx
 pionex-bot/output/*.json
 pionex-bot/dashboard-tutorial.pptx
 nba_data.json
+
+# Obsidian vault — exclude personal/cache, keep config + plugins
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/*/data.json.bak

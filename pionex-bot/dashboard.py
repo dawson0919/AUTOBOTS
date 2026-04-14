@@ -42,7 +42,7 @@ def auth_middleware():
         return
     # Public read-only proxy endpoints (Polymarket, ESPN, Pionex market data)
     PUBLIC_PREFIXES = ("/api/poly/", "/api/nba/", "/api/tickers", "/api/klines", "/api/stream",
-                       "/api/bots", "/api/pnl", "/api/state", "/api/portfolio",
+                       "/api/bots", "/api/pnl", "/api/state", "/api/portfolio", "/api/qsignals",
                        "/api/mlb/")
     if any(request.path.startswith(p) for p in PUBLIC_PREFIXES):
         return
@@ -245,6 +245,50 @@ def bots():
     try:
         cfg = load_toml(str(TOML_PATH))
         return jsonify(cfg)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/qsignals")
+def qsignals():
+    """Latest Q-SIGNALS consensus per bot (from signal_manager_qsignals.py JSONL log)."""
+    jsonl = STATE_DIR / "qsignals_compare.jsonl"
+    if not jsonl.exists():
+        return jsonify({"bots": {}, "error": "no qsignals data yet"})
+    latest: dict[str, dict] = {}
+    try:
+        with open(jsonl, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                rec = json.loads(line)
+                latest[rec["bot"]] = rec
+        return jsonify({"bots": latest})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/qsignals-bots")
+def qsignals_bots():
+    """Virtual Q-SIGNALS grid bots: merge bots_qsignals.toml config + state/qs_*.json."""
+    toml_path = BOT_DIR / "bots_qsignals.toml"
+    if not toml_path.exists():
+        return jsonify({"bots": {}, "error": "bots_qsignals.toml not found"})
+    try:
+        cfg = load_toml(str(toml_path))
+        bots = cfg.get("bots", {})
+        result = {}
+        for name, bcfg in bots.items():
+            state_file = STATE_DIR / f"{name}.json"
+            state = {}
+            if state_file.exists():
+                try:
+                    state = json.loads(state_file.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+            result[name] = {"config": bcfg, "state": state}
+        return jsonify({"bots": result, "dry_run": cfg.get("global", {}).get("dry_run", True)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

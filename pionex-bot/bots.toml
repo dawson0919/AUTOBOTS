@@ -24,7 +24,7 @@ grid_top = "5000"
 grid_rows = 50
 grid_type = "arithmetic"
 leverage = 5
-investment = "300"
+investment = "50"
 bu_order_id = "18ad987a-8cd5-4183-a1d6-637913a823f2"
 
 [bots.sol]
@@ -41,7 +41,7 @@ grid_top = "95"
 grid_rows = 40
 grid_type = "arithmetic"
 leverage = 5
-investment = "280"
+investment = "50"
 bu_order_id = "88efd01e-3364-449c-a3d0-70e478f55482"
 
 [bots.slvx]
@@ -58,7 +58,7 @@ grid_top = "75"
 grid_rows = 30
 grid_type = "arithmetic"
 leverage = 5
-investment = "300"
+investment = "50"
 bu_order_id = "70c12fa7-adab-4ef3-9141-c10c57524f21"
 
 [bots.paxg]
@@ -75,7 +75,7 @@ grid_top = "5000"
 grid_rows = 50
 grid_type = "arithmetic"
 leverage = 5
-investment = "300"
+investment = "50"
 bu_order_id = "4a725a07-44f4-457a-b839-2dea91710cef"
 
 [bots.btc]
@@ -109,7 +109,7 @@ grid_top = "4500"
 grid_rows = 50
 grid_type = "arithmetic"
 leverage = 5
-investment = "125"
+investment = "50"
 bu_order_id = "781bac54-dde0-4e53-8793-714bedac1bd0"
 
 [bots.usox]
@@ -126,7 +126,7 @@ grid_top = "145"
 grid_rows = 40
 grid_type = "geometric"
 leverage = 5
-investment = "125"
+investment = "50"
 bu_order_id = "b96e8b2b-d288-41cd-9e96-3c937dbcefb6"
 
 [bots.qqqx]

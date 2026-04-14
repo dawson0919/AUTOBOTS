@@ -439,6 +439,8 @@ def build_features(
     is_home: bool = True,
     b2b_a: bool = False,
     b2b_b: bool = False,
+    recent_form_a: float = 0.5,
+    recent_form_b: float = 0.5,
 ) -> dict[str, float]:
     """Build feature vector for a matchup."""
     elo_a = elo.ratings.get(team_a, 1500.0)
@@ -466,6 +468,10 @@ def build_features(
         "b2b_adv": (1.0 if b2b_b else 0.0) - (1.0 if b2b_a else 0.0),  # +1 = opponent B2B advantage
         "both_b2b": 1.0 if (b2b_a and b2b_b) else 0.0,  # neutralizer
         "home_away": 1.0 if is_home else 0.0,
+        # Recent form (momentum) — last-5 games win ratio
+        "recent_form_a": recent_form_a,
+        "recent_form_b": recent_form_b,
+        "recent_form_diff": recent_form_a - recent_form_b,
     }
 
 
@@ -496,9 +502,19 @@ class NBAPredictor:
         self.feature_names: list[str] = []
         self.team_stats: dict[str, dict] = {}
         self.rmse = 12.0  # Default RMSE for NBA point spreads
+        # Rolling recent form: team -> list of 0/1 (win=1) from most recent to oldest
+        self.recent_forms: dict[str, list[int]] = {}
+
+    def _get_recent_form(self, team: str, n: int = 5) -> float:
+        """Return win ratio over last n games. Returns 0.5 if no history."""
+        hist = self.recent_forms.get(team, [])
+        if len(hist) == 0:
+            return 0.5
+        window = hist[-n:]
+        return sum(window) / len(window)
 
     def train(self, games: list[dict], standings: dict[str, dict] | None = None):
-        """Train XGBoost on historical game results."""
+        """Train XGBoost as binary classifier (win/loss) with recent-form features."""
         xgb = _ensure_xgboost()
 
         self.team_stats = standings or {}
@@ -508,33 +524,59 @@ class NBAPredictor:
         for g in sorted_games:
             self.elo.update(g["winner"], g["loser"], g.get("home_team"))
 
-        # Build feature matrix
+        # Build feature matrix — binary classification (y = 1 if team_a wins)
         X, y = [], []
         last_game: dict[str, str] = {}  # team -> date_str
+        # recent forms: team -> rolling list of 0/1 wins (filled as we process)
+        self.recent_forms: dict[str, list[int]] = {}
 
         for g in sorted_games:
             date_obj = datetime.strptime(g["date"], "%Y%m%d")
-            
+
             # Detect B2B
-            b2b_a = False
-            if g["team_a"] in last_game:
-                prev_date = datetime.strptime(last_game[g["team_a"]], "%Y%m%d")
-                if (date_obj - prev_date).days == 1:
-                    b2b_a = True
-            
-            b2b_b = False
-            if g["team_b"] in last_game:
-                prev_date = datetime.strptime(last_game[g["team_b"]], "%Y%m%d")
-                if (date_obj - prev_date).days == 1:
-                    b2b_b = True
+            b2b_a = (
+                g["team_a"] in last_game and
+                (date_obj - datetime.strptime(last_game[g["team_a"]], "%Y%m%d")).days == 1
+            )
+            b2b_b = (
+                g["team_b"] in last_game and
+                (date_obj - datetime.strptime(last_game[g["team_b"]], "%Y%m%d")).days == 1
+            )
+
+            # Recent form features — use already-updated rolling history
+            recent_a = self._get_recent_form(g["team_a"], n=5)
+            recent_b = self._get_recent_form(g["team_b"], n=5)
 
             feats = build_features(
                 g["team_a"], g["team_b"], self.team_stats, self.elo,
-                is_home=True, b2b_a=b2b_a, b2b_b=b2b_b
+                is_home=True, b2b_a=b2b_a, b2b_b=b2b_b,
+                recent_form_a=recent_a, recent_form_b=recent_b,
             )
             X.append(list(feats.values()))
-            y.append(float(g["home_score"] - g["away_score"]))
+
+            # Binary target: 1 if team_a wins
+            home_win = 1 if (g["home_score"] - g["away_score"]) > 0 else 0
+            y.append(home_win)
             self.feature_names = list(feats.keys())
+
+            # Update rolling form: team_a win/loss from team_a perspective
+            # (team_a is home in this dataset — use actual home_score comparison)
+            a_is_home = g.get("team_a") == g.get("home_team", g["team_a"])
+            if a_is_home:
+                a_result = 1 if g["home_score"] > g["away_score"] else 0
+                b_result = 1 - a_result
+            else:
+                # team_a was away
+                b_result = 1 if g["home_score"] > g["away_score"] else 0
+                a_result = 1 - b_result
+
+            for _t, _r in ((g["team_a"], a_result), (g["team_b"], b_result)):
+                if _t not in self.recent_forms:
+                    self.recent_forms[_t] = []
+                self.recent_forms[_t].append(_r)
+                # Keep rolling window to 20 (handles both 5 and 10 game windows)
+                if len(self.recent_forms[_t]) > 20:
+                    self.recent_forms[_t] = self.recent_forms[_t][-20:]
 
             # Update last game date
             last_game[g["team_a"]] = g["date"]
@@ -548,16 +590,18 @@ class NBAPredictor:
         y_arr = np.array(y)
 
         dtrain = xgb.DMatrix(X_arr, label=y_arr, feature_names=self.feature_names)
+        # Binary classification — predict P(team_a wins)
         params = {
-            "objective": "reg:squarederror",
-            "eval_metric": "rmse",
+            "objective": "binary:logistic",
+            "eval_metric": "logloss",
             "max_depth": 5,
             "eta": 0.05,
             "subsample": 0.8,
             "colsample_bytree": 0.8,
+            "scale_pos_weight": 1,
             "verbosity": 0,
         }
-        self.model = xgb.train(params, dtrain, num_boost_round=150)
+        self.model = xgb.train(params, dtrain, num_boost_round=200)
 
         # Feature importance
         importance = self.model.get_score(importance_type="weight")
@@ -566,26 +610,65 @@ class NBAPredictor:
             for f, score in sorted(importance.items(), key=lambda x: x[1], reverse=True):
                 print(f"    {f}: {score}")
 
-        # Training RMSE
-        preds = self.model.predict(dtrain)
-        self.rmse = float(np.sqrt(np.mean((preds - y_arr) ** 2)))
-        print(f"\n  Training RMSE: {self.rmse:.2f} points (Typical: 11-13)")
+        # Training log-loss (lower = better)
+        preds_proba = self.model.predict(dtrain)
+        logloss = float(np.mean(-y_arr * np.log(preds_proba + 1e-15) -
+                                 (1 - y_arr) * np.log(1 - preds_proba + 1e-15)))
+        # Binary accuracy
+        binary_acc = float(np.mean((preds_proba > 0.5).astype(int) == y_arr))
+        print(f"\n  Training LogLoss: {logloss:.4f}  |  Binary Accuracy: {binary_acc*100:.1f}%")
 
-    def predict(self, team_a: str, team_b: str, is_home: bool = True, 
+    def predict(self, team_a: str, team_b: str, is_home: bool = True,
                 b2b_a: bool = False, b2b_b: bool = False) -> float:
-        """Predict WIN PROBABILITY for team_a (calculated from margin)."""
+        """Predict WIN PROBABILITY for team_a.
+        Blends XGBoost binary-classifier probability (when available) with
+        Elo-based probability for robustness.
+        """
+        if self.model is not None and self.feature_names:
+            # Use XGBoost binary classifier — P(team_a wins)
+            recent_a = self._get_recent_form(team_a, n=5)
+            recent_b = self._get_recent_form(team_b, n=5)
+            feats = build_features(
+                team_a, team_b, self.team_stats, self.elo,
+                is_home=is_home, b2b_a=b2b_a, b2b_b=b2b_b,
+                recent_form_a=recent_a, recent_form_b=recent_b,
+            )
+            xgb = _ensure_xgboost()
+            X = np.array([list(feats.values())])
+            dtest = xgb.DMatrix(X, feature_names=self.feature_names)
+            xgb_prob = float(self.model.predict(dtest)[0])
+            # Fallback: clamp
+            xgb_prob = max(0.01, min(0.99, xgb_prob))
+
+            # Elo-based reference probability
+            elo_prob = self.margin_to_prob(
+                self._elo_margin(team_a, team_b, is_home), 0
+            )
+            # Blend: 50% XGBoost / 50% Elo for stability
+            return 0.5 * xgb_prob + 0.5 * elo_prob
+
+        # No model: pure Elo
         margin = self.predict_margin(team_a, team_b, is_home, b2b_a, b2b_b)
         return self.margin_to_prob(margin, 0)
+
+    def _elo_margin(self, team_a: str, team_b: str, is_home: bool) -> float:
+        """Elo-based margin (isolated for blending)."""
+        elo_a = self.elo.ratings.get(team_a, 1500)
+        elo_b = self.elo.ratings.get(team_b, 1500)
+        if is_home:
+            quality = max(0, min(1, (elo_a - 1350) / 250))
+            h_adj = 60 + 40 * quality
+        else:
+            h_adj = 0
+        return (elo_a - elo_b + h_adj) / 28.0
 
     def predict_margin(self, team_a: str, team_b: str, is_home: bool = True,
                        b2b_a: bool = False, b2b_b: bool = False) -> float:
         """Predict point margin (team_a - team_b).
-        Uses Elo-based calculation (proven reliable).
-        The XGBoost regression model had directional issues and is disabled.
-        Use SpreadPredictor separately for spread-specific predictions.
+        Uses Elo-based calculation. The XGBoost model now predicts win
+        probability directly (binary classification) and is used in predict().
         """
-        elo_a = self.elo.ratings.get(team_a, 1500)
-        elo_b = self.elo.ratings.get(team_b, 1500)
+        elo_margin = self._elo_margin(team_a, team_b, is_home)
 
         # Scale home advantage by team quality
         # Good teams (Elo > 1550) get full +100, bad teams (Elo < 1400) get reduced +60
@@ -620,7 +703,7 @@ class NBAPredictor:
         return 0.5 * (1 + math.erf(z / math.sqrt(2)))
 
     def save(self, path: Path | None = None):
-        """Persist Elo ratings and model metadata."""
+        """Persist Elo ratings, recent_forms, and model metadata."""
         path = path or MODEL_PATH
         path.parent.mkdir(parents=True, exist_ok=True)
         state = {
@@ -628,6 +711,7 @@ class NBAPredictor:
             "feature_names": self.feature_names,
             "has_model": self.model is not None,
             "rmse": self.rmse,
+            "recent_forms": {k: v for k, v in self.recent_forms.items()},  # serialize
             "saved_at": datetime.now().isoformat(),
         }
         path.write_text(json.dumps(state, indent=2), encoding="utf-8")
@@ -647,6 +731,9 @@ class NBAPredictor:
             self.elo.from_dict(state.get("elo", {}))
             self.feature_names = state.get("feature_names", [])
             self.rmse = state.get("rmse", 12.0)
+            # Restore recent forms (map int keys from JSON if needed)
+            raw_rf = state.get("recent_forms", {})
+            self.recent_forms = {k: list(v) for k, v in raw_rf.items()}
             # Load xgboost model if available
             model_bin = path.with_suffix(".xgb")
             if state.get("has_model") and model_bin.exists() and self.feature_names:
@@ -688,6 +775,8 @@ class SpreadPredictor:
         elo: EloSystem,
         rest_days_home: int = 2,
         rest_days_away: int = 2,
+        recent_form_home: float = 0.5,
+        recent_form_away: float = 0.5,
     ) -> dict[str, float]:
         """Extended features for spread prediction."""
         h = standings.get(home, {})
@@ -717,6 +806,10 @@ class SpreadPredictor:
             "rest_days_away": float(rest_days_away),
             "rest_advantage": float(rest_days_home - rest_days_away),
             "home_court": 3.5,
+            # Recent form momentum
+            "recent_form_home": recent_form_home,
+            "recent_form_away": recent_form_away,
+            "recent_form_diff": recent_form_home - recent_form_away,
         }
 
     def train(self, games: list[dict], standings: dict[str, dict], elo: EloSystem):
@@ -725,6 +818,13 @@ class SpreadPredictor:
 
         X, y = [], []
         last_played: dict[str, str] = {}
+        recent_forms: dict[str, list[int]] = {}
+
+        def _recent_form(team: str, n: int = 5) -> float:
+            hist = recent_forms.get(team, [])
+            if not hist:
+                return 0.5
+            return sum(hist[-n:]) / len(hist[-n:])
 
         for g in sorted(games, key=lambda x: x["date"]):
             home = g["team_a"]
@@ -743,13 +843,26 @@ class SpreadPredictor:
             rest_h = min(max(rest_h, 0), 7)
             rest_a = min(max(rest_a, 0), 7)
 
-            feats = self.build_spread_features(home, away, standings, elo, rest_h, rest_a)
+            feats = self.build_spread_features(
+                home, away, standings, elo, rest_h, rest_a,
+                recent_form_home=_recent_form(home),
+                recent_form_away=_recent_form(away),
+            )
             X.append(list(feats.values()))
 
             margin = g["home_score"] - g["away_score"]
             y.append(margin)
-
             self.feature_names = list(feats.keys())
+
+            # Update rolling recent form
+            a_win = 1 if g["home_score"] > g["away_score"] else 0
+            for _t, _r in ((home, a_win), (away, 1 - a_win)):
+                if _t not in recent_forms:
+                    recent_forms[_t] = []
+                recent_forms[_t].append(_r)
+                if len(recent_forms[_t]) > 20:
+                    recent_forms[_t] = recent_forms[_t][-20:]
+
             last_played[home] = g["date"]
             last_played[away] = g["date"]
 
@@ -791,6 +904,8 @@ class SpreadPredictor:
         elo: EloSystem,
         rest_days_home: int = 2,
         rest_days_away: int = 2,
+        recent_form_home: float = 0.5,
+        recent_form_away: float = 0.5,
     ) -> float:
         """Predict home team margin."""
         if self.model is None:
@@ -799,7 +914,10 @@ class SpreadPredictor:
             return (elo_h - elo_a) / 28 + 3.5
 
         xgb = _ensure_xgboost()
-        feats = self.build_spread_features(home, away, standings, elo, rest_days_home, rest_days_away)
+        feats = self.build_spread_features(
+            home, away, standings, elo, rest_days_home, rest_days_away,
+            recent_form_home, recent_form_away,
+        )
         X = np.array([list(feats.values())])
         dtest = xgb.DMatrix(X, feature_names=self.feature_names)
         return float(self.model.predict(dtest)[0])
@@ -975,7 +1093,8 @@ def cmd_today(predictor: NBAPredictor):
         print(f"  Elo Ratings: {home}={home_elo:.0f} | {away}={away_elo:.0f}")
 
         if has_spread:
-            sp_margin = spread_model.predict(home, away, standings, predictor.elo, rest_h, rest_a)
+            sp_margin = spread_model.predict(home, away, standings, predictor.elo, rest_h, rest_a,
+                                             predictor._get_recent_form(home), predictor._get_recent_form(away))
             h_stats = standings.get(home, {})
             a_stats = standings.get(away, {})
             pred_total = (
@@ -1233,7 +1352,8 @@ def main():
             }
 
             if has_spread:
-                sp_margin = spread_model.predict(home, away, standings, predictor.elo, rest_h, rest_a)
+                sp_margin = spread_model.predict(home, away, standings, predictor.elo, rest_h, rest_a,
+                                             predictor._get_recent_form(home), predictor._get_recent_form(away))
                 game_entry["pred_spread"] = round(sp_margin, 1)
 
             # Fallback: use Elo-based margin if spread model unavailable
@@ -1350,7 +1470,8 @@ def main():
                             "rest_home": rest_h, "rest_away": rest_a,
                         }
                         if has_spread:
-                            sp = spread_model.predict(home, away, standings, predictor.elo, rest_h, rest_a)
+                            sp = spread_model.predict(home, away, standings, predictor.elo, rest_h, rest_a,
+                                                     predictor._get_recent_form(home), predictor._get_recent_form(away))
                             te["pred_spread"] = round(sp, 1)
                         h_st = standings.get(home, {}); a_st = standings.get(away, {})
                         ae = (a_st.get("ppg",110) + h_st.get("oppg",110)) / 2

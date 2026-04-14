@@ -1,0 +1,28 @@
+{
+  "promptDelete": true,
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "shortest",
+  "useMarkdownLinks": false,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "notes",
+  "attachmentFolderPath": "notes/attachments",
+  "userIgnoreFilters": [
+    "node_modules/",
+    "venv/",
+    "__pycache__/",
+    ".git/",
+    ".claude/",
+    ".qwen/",
+    ".hermes/",
+    "graphify-out/",
+    "output/",
+    "dist/",
+    "build/",
+    "*.pyc",
+    "*.log",
+    "state/",
+    "backtest_*.json",
+    "users.db",
+    "scheduled_tasks.lock"
+  ]
+}
