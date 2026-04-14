@@ -1255,6 +1255,7 @@ def cmd_backtest(predictor: NBAPredictor, days: int, limit: int | None = None):
     predictor.elo = elobot
     # Give predictor a copy of elo_history for momentum features
     predictor._elo_history = {k: list(v) for k, v in elo_history.items()}
+    # Initial training on warm-up set (no retraining during backtest = realistic eval)
     predictor.train(train_games, standings)
 
     correct = 0
@@ -1281,6 +1282,23 @@ def cmd_backtest(predictor: NBAPredictor, days: int, limit: int | None = None):
             rest_a = (date_obj - datetime.strptime(last_game[g["team_a"]], "%Y%m%d")).days if g["team_a"] in last_game else 99
             rest_b = (date_obj - datetime.strptime(last_game[g["team_b"]], "%Y%m%d")).days if g["team_b"] in last_game else 99
 
+            # Update ELO and recent_forms BEFORE prediction (to avoid lookahead bias)
+            predictor.elo.update(g["winner"], g["loser"], g["team_a"])
+            a_win = 1 if (g["home_score"] - g["away_score"]) > 0 else 0
+            b_win = 1 - a_win
+            for _t, _r in ((g["team_a"], a_win), (g["team_b"], b_win)):
+                if _t not in predictor.recent_forms:
+                    predictor.recent_forms[_t] = []
+                predictor.recent_forms[_t].append(_r)
+                if len(predictor.recent_forms[_t]) > 20:
+                    predictor.recent_forms[_t] = predictor.recent_forms[_t][-20:]
+            for _t in (g["team_a"], g["team_b"]):
+                if _t not in predictor._elo_history:
+                    predictor._elo_history[_t] = []
+                predictor._elo_history[_t].append(predictor.elo.ratings.get(_t, 1500.0))
+                if len(predictor._elo_history[_t]) > 20:
+                    predictor._elo_history[_t] = predictor._elo_history[_t][-20:]
+
             # Use the new predict() with all new features
             prob = predictor.predict(g["team_a"], g["team_b"], is_home=True,
                                    b2b_a=b2b_a, b2b_b=b2b_b,
@@ -1297,23 +1315,8 @@ def cmd_backtest(predictor: NBAPredictor, days: int, limit: int | None = None):
                 if pred_win == actual_win:
                     strong_correct += 1
 
-        # Update state after the day's games
-        for g in day_games:
-            predictor.elo.update(g["winner"], g["loser"], g["team_a"])
-            train_games.append(g)
             last_game[g["team_a"]] = g["date"]
             last_game[g["team_b"]] = g["date"]
-            for _t in (g["team_a"], g["team_b"]):
-                if _t not in elo_history:
-                    elo_history[_t] = []
-                elo_history[_t].append(predictor.elo.ratings.get(_t, 1500.0))
-                if len(elo_history[_t]) > 20:
-                    elo_history[_t] = elo_history[_t][-20:]
-
-        # Retrain weekly (every 7 days) to reduce compute cost
-        if len(train_games) % 7 == 0:
-            predictor._elo_history = {k: list(v) for k, v in elo_history.items()}
-            predictor.train(train_games, standings)
 
     accuracy = correct / total if total > 0 else 0
     strong_acc = strong_correct / strong_total if strong_total > 0 else 0
