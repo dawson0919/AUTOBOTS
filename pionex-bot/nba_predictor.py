@@ -654,7 +654,7 @@ class NBAPredictor:
             "scale_pos_weight": 1,
             "verbosity": 0,
         }
-        self.model = xgb.train(params, dtrain, num_boost_round=400)
+        self.model = xgb.train(params, dtrain, num_boost_round=200)
 
         # Feature importance
         importance = self.model.get_score(importance_type="weight")
@@ -1310,8 +1310,10 @@ def cmd_backtest(predictor: NBAPredictor, days: int, limit: int | None = None):
                 if len(elo_history[_t]) > 20:
                     elo_history[_t] = elo_history[_t][-20:]
 
-        predictor._elo_history = {k: list(v) for k, v in elo_history.items()}
-        predictor.train(train_games, standings)
+        # Retrain weekly (every 7 days) to reduce compute cost
+        if len(train_games) % 7 == 0:
+            predictor._elo_history = {k: list(v) for k, v in elo_history.items()}
+            predictor.train(train_games, standings)
 
     accuracy = correct / total if total > 0 else 0
     strong_acc = strong_correct / strong_total if strong_total > 0 else 0
