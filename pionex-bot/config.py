@@ -49,3 +49,13 @@ class Config:
     BLADE_LOSS_STOP: str = os.getenv("BLADE_LOSS_STOP", "-0.15")  # -15% loss stop
     BLADE_PROFIT_STOP_TYPE: str = os.getenv("BLADE_PROFIT_STOP_TYPE", "profit_ratio")
     BLADE_PROFIT_STOP: str = os.getenv("BLADE_PROFIT_STOP", "0.30")  # +30% take profit
+
+    # Q-SIGNALS direction override: when enabled, grid bot OPEN/FLIP direction
+    # is taken from Q-SIGNALS consensus (majority vote across 10 strategies)
+    # instead of the triple-blade MA signal. The blade signal still gates
+    # WHEN to act (strength ≥ BLADE_MIN_STRENGTH); Q-SIGNALS decides DIRECTION.
+    BLADE_USE_QSIGNALS_DIR: bool = os.getenv("BLADE_USE_QSIGNALS_DIR", "true").lower() in ("1", "true", "yes")
+    # Minimum fraction of Q-SIGNALS strategies that must agree on direction.
+    BLADE_QSIGNALS_MIN_AGREE: float = float(os.getenv("BLADE_QSIGNALS_MIN_AGREE", "0.5"))
+    # Cooldown between cancel and create (seconds) in reversal path.
+    BLADE_COOLDOWN_SEC: int = int(os.getenv("BLADE_COOLDOWN_SEC", "10"))

@@ -85,8 +85,112 @@ class TripleBladeBot:
 
     # ── Grid Bot Management ──────────────────────────────────────
 
+    # Statuses that mean the bot is still holding/placing orders on Pionex.
+    ACTIVE_STATUSES = ("open", "running", "prepare", "preparing")
+
+    # Q-SIGNALS signal → direction. Mirrors qsignals_bot_manager.DIR_MAP.
+    _QS_DIR_MAP = {"BUY": "long", "CLOSE_SHORT": "long",
+                   "SELL": "short", "CLOSE_LONG": "short",
+                   "HOLD": "flat"}
+
+    def _qsignals_consensus(self, klines: list[dict]) -> tuple[str, int, int]:
+        """Return (direction, agree, total). direction ∈ {long, short, no_trend}.
+        Runs all Q-SIGNALS strategies calibrated for this symbol; majority
+        vote decides the grid direction. `no_trend` when coverage/agree is
+        insufficient."""
+        try:
+            from qsignals_adapter import evaluate, strategies_for_symbol
+        except Exception as e:
+            log.warning("Q-SIGNALS adapter not importable: %s", e)
+            return "no_trend", 0, 0
+
+        strategies = strategies_for_symbol(self.cfg.BLADE_SYMBOL)
+        if not strategies:
+            log.info("Q-SIGNALS has no coverage for %s, using blade direction.",
+                     self.cfg.BLADE_SYMBOL)
+            return "no_trend", 0, 0
+
+        # Map Pionex symbol format to Q-SIGNALS expected format.
+        qs_symbol = self.cfg.BLADE_SYMBOL.upper().replace("_USDT_PERP", "USDT")
+        counts = {"long": 0, "short": 0, "flat": 0}
+        total = 0
+        for sid in strategies:
+            try:
+                r = evaluate(sid, qs_symbol, self.cfg.BLADE_INTERVAL, klines)
+                sig = (r or {}).get("signal", "HOLD")
+                direction = self._QS_DIR_MAP.get(sig, "flat")
+                counts[direction] += 1
+                total += 1
+            except Exception as e:
+                log.debug("Q-SIGNALS %s failed for %s: %s", sid, qs_symbol, e)
+                continue
+
+        if total == 0:
+            return "no_trend", 0, 0
+        # Prefer long/short over flat — flat doesn't produce a direction.
+        best = max(("long", "short"), key=lambda k: counts[k])
+        agree = counts[best]
+        min_agree = max(1, int(total * self.cfg.BLADE_QSIGNALS_MIN_AGREE))
+        if agree < min_agree:
+            log.info("Q-SIGNALS consensus too weak: %s %d/%d (need ≥%d) → no_trend",
+                     best, agree, total, min_agree)
+            return "no_trend", agree, total
+        log.info("Q-SIGNALS consensus: %s (%d/%d, flat=%d)",
+                 best, agree, total, counts["flat"])
+        return best, agree, total
+
+    def _is_still_active(self, bu_order_id: str) -> bool:
+        """Return True if Pionex still shows this grid in an active state.
+        Used after cancel to confirm it actually closed before opening a
+        replacement (prevents duplicate bots during Pionex's cancel window)."""
+        if not bu_order_id or self.cfg.DRY_RUN:
+            return False
+        try:
+            info = self.client.bot_futures_grid_get(bu_order_id)
+            data = (info or {}).get("data") or info or {}
+            status = str(data.get("status") or "").lower()
+            return status in self.ACTIVE_STATUSES
+        except PionexAPIError as e:
+            # On API error, assume still active (conservative — avoids race).
+            log.warning("_is_still_active check failed for %s: %s "
+                        "(assuming active to be safe)", bu_order_id, e)
+            return True
+
+    def _verify_active_grid(self) -> None:
+        """Cross-check local state against Pionex. Clears stale active_grid_id
+        if the tracked bot is no longer running (manual cancel, liquidation,
+        auto-close, crash between cancel & save). Must run before any
+        create/cancel decision — local state alone can't be trusted."""
+        if not self._active_grid_id or self.cfg.DRY_RUN:
+            return
+        try:
+            info = self.client.bot_futures_grid_get(self._active_grid_id)
+            data = (info or {}).get("data") or info or {}
+            status = str(data.get("status") or "").lower()
+            if status and status not in self.ACTIVE_STATUSES:
+                log.warning("State drift: local tracks %s as active but "
+                            "Pionex reports status=%s → clearing.",
+                            self._active_grid_id, status)
+                self._active_grid_id = None
+                self._active_trend = None
+                self._save_state()
+        except PionexAPIError as e:
+            log.warning("Could not verify grid %s: %s", self._active_grid_id, e)
+            # On API error, keep state as-is — don't risk clearing a live bot.
+
     def _create_grid(self, trend: str, current_price: float) -> str | None:
         """Create a futures grid bot with the given trend direction."""
+        # Hard safety: refuse to create if we already track an active bot.
+        # This prevents duplicate bots if state was not properly cleared
+        # after a failed cancel or an out-of-band manual action.
+        if self._active_grid_id:
+            log.error(
+                "ABORT create: already tracking active grid %s (trend=%s). "
+                "Cancel it first.",
+                self._active_grid_id, self._active_trend,
+            )
+            return None
+
         range_pct = self.cfg.BLADE_RANGE_PCT / 100
         top_price = current_price * (1 + range_pct)
         bottom_price = current_price * (1 - range_pct)
@@ -178,8 +282,36 @@ class TripleBladeBot:
 
         return False
 
-    def _process_signal(self, signal: BladeSignal, current_price: float):
+    def _pick_direction(self, blade_signal: BladeSignal,
+                        klines: list[dict]) -> str:
+        """Decide the grid direction for a new/flip bot.
+
+        Default: blade_signal.trend (long/short).
+        If BLADE_USE_QSIGNALS_DIR=true, Q-SIGNALS consensus overrides — the
+        blade signal is still used to gate WHEN to act, but DIRECTION follows
+        the strategy consensus (which generally has better risk-adjusted edge
+        than a single MA cross)."""
+        blade_dir = blade_signal.trend  # "long" | "short" | "no_trend"
+        if not self.cfg.BLADE_USE_QSIGNALS_DIR or not klines:
+            return blade_dir
+        qs_dir, agree, total = self._qsignals_consensus(klines)
+        if qs_dir in ("long", "short"):
+            if qs_dir != blade_dir:
+                log.info("🧭 Direction override: blade=%s → Q-SIGNALS=%s (%d/%d)",
+                         blade_dir, qs_dir, agree, total)
+            return qs_dir
+        # Q-SIGNALS inconclusive — fall back to blade signal.
+        log.info("Q-SIGNALS inconclusive; using blade direction %s.", blade_dir)
+        return blade_dir
+
+    def _process_signal(self, signal: BladeSignal, current_price: float,
+                        klines: list[dict] | None = None):
         """Process a blade signal and manage grid bots accordingly."""
+        # First: sync local state with Pionex truth. A bot that was manually
+        # cancelled on the app, liquidated, or auto-closed must be cleared
+        # before we decide whether to flip or open a new grid.
+        self._verify_active_grid()
+
         # Record signal
         self._signal_history.append({
             "time": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -188,33 +320,64 @@ class TripleBladeBot:
             "price": current_price,
         })
 
-        # Case 1: Signal reversal → cancel old grid, create new one
+        # Case 1: Signal reversal → cancel old grid, then verify, then create
         if self._needs_reversal(signal):
+            old_id = self._active_grid_id
             log.info("🔄 SIGNAL REVERSAL: %s → %s (cancelling %s grid)",
-                     self._active_trend, signal.trend, self._active_grid_id)
+                     self._active_trend, signal.trend, old_id)
 
-            if self._cancel_grid(self._active_grid_id):
+            if self._cancel_grid(old_id):
+                # Pionex needs a moment for the cancel to propagate — during
+                # this window the old bot's orders are still resting.
+                cooldown = getattr(self.cfg, "BLADE_COOLDOWN_SEC",
+                                    getattr(self.cfg, "COOLDOWN_SECONDS", 10))
+                log.debug("Cooldown %ds before verifying cancel…", cooldown)
+                time.sleep(cooldown)
+
+                # Actively confirm the old bot is no longer active on Pionex.
+                # If our cancel succeeded but the bot is still running, DO NOT
+                # open a new one — log loudly and bail.
+                if self._is_still_active(old_id):
+                    log.error(
+                        "❌ Cancel reported success but %s is still active "
+                        "on Pionex. Aborting reversal to avoid duplicate bot.",
+                        old_id,
+                    )
+                    # Don't clear local state — next tick will re-verify.
+                    self._save_state()
+                    return
+
                 self._active_grid_id = None
                 self._active_trend = None
 
-                # Create new grid in opposite direction
-                new_id = self._create_grid(signal.trend, current_price)
+                # Direction picked from Q-SIGNALS consensus (or blade fallback).
+                new_trend = self._pick_direction(signal, klines or [])
+                if new_trend == "no_trend":
+                    log.info("No clear direction after cancel; staying flat.")
+                    self._save_state()
+                    return
+
+                new_id = self._create_grid(new_trend, current_price)
                 if new_id:
                     self._active_grid_id = new_id
-                    self._active_trend = signal.trend
+                    self._active_trend = new_trend
                     self._grid_create_time = time.time()
             self._save_state()
             return
 
         # Case 2: No active grid + strong enough signal → create grid
         if not self._active_grid_id and self._should_act(signal) and signal.trend != "no_trend":
-            log.info("🆕 NEW GRID: %s signal (strength=%d) → creating %s grid",
-                     signal.value, signal.strength, signal.trend)
+            new_trend = self._pick_direction(signal, klines or [])
+            if new_trend == "no_trend":
+                log.info("Blade wants to open but Q-SIGNALS says no_trend; skipping.")
+                return
+            log.info("🆕 NEW GRID: blade=%s (strength=%d) → opening %s grid",
+                     signal.value, signal.strength, new_trend)
 
-            new_id = self._create_grid(signal.trend, current_price)
+            new_id = self._create_grid(new_trend, current_price)
             if new_id:
                 self._active_grid_id = new_id
-                self._active_trend = signal.trend
+                self._active_trend = new_trend
                 self._grid_create_time = time.time()
             self._save_state()
             return
@@ -248,11 +411,12 @@ class TripleBladeBot:
 
         current_price = float(klines[-1]["close"])
 
-        # 2. Evaluate triple MA signal
+        # 2. Evaluate triple MA signal (blade signal — gates strength/when)
         signal = self.strategy.evaluate(klines)
 
-        # 3. Process signal
-        self._process_signal(signal, current_price)
+        # 3. Process signal. Pass klines so Q-SIGNALS adapter can vote on
+        #    DIRECTION (long/short) when opening or flipping a grid.
+        self._process_signal(signal, current_price, klines)
 
     def _print_banner(self):
         log.info("=" * 60)

@@ -87,13 +87,15 @@ guan_yu = 50
 zhang_fei = 20
 dist_pct = 2.0
 disable_bounce = true
-grid_bottom = "65000"
-grid_top = "74000"
-grid_rows = 30
+# 2026-04-18: 原範圍 65000-74000 已失效（現價 77,117 超出上緣）
+# 重設為現價 ±15%（65,500–88,500），50 格約 0.6%/格。
+grid_bottom = "65500"
+grid_top = "88500"
+grid_rows = 50
 grid_type = "arithmetic"
 leverage = 5
 investment = "80"
-bu_order_id = "ea63b599-8d67-4e17-9836-86ed74b9ffcb"
+bu_order_id = "d0dab566-b9a8-4052-853b-d73b5c0576b6"
 
 [bots.eth]
 symbol = "ETH_USDT_PERP"
@@ -138,13 +140,17 @@ guan_yu = 50
 zhang_fei = 20
 dist_pct = 0.5
 disable_bounce = true
-grid_bottom = "530"
-grid_top = "620"
+# 2026-04-18: 原範圍 530-620 已失效（現價 647.63 超出上緣；舊 bot 其實早因
+# not_enough_balance_when_lock 自動取消，本次直接新建）
+# 新範圍：現價 ±15%（550–745），30 格約 1.3%/格
+# （試 40 格時 BOT_INTERNAL_ERROR，推測是 per-grid notional 低於 QQQX min lot）
+grid_bottom = "550"
+grid_top = "745"
 grid_rows = 30
 grid_type = "arithmetic"
 leverage = 5
 investment = "50"
-bu_order_id = "a012761e-225d-443c-a573-8bbca137227a"
+bu_order_id = "58a125b2-89bd-4483-aba7-c755b1c0b5d7"
 
 [bots.doge]
 symbol = "DOGE_USDT_PERP"
