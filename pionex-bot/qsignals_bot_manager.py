@@ -91,6 +91,12 @@ def save_bot_state(bot: str, state: dict):
     (STATE_DIR / f"{bot}.json").write_text(
         json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    # Best-effort cloud sync — don't block local write if cloud is down
+    try:
+        from qsignals_cloud_sync import push_bot_state
+        push_bot_state(bot, state)
+    except Exception:
+        pass
 
 
 def execute_flip(client: BotAPIClient, name: str, cfg: dict, global_cfg: dict,
@@ -223,20 +229,27 @@ def process_bot(client: BotAPIClient, name: str, cfg: dict, global_cfg: dict, lo
                 action = f"FLIP {prev_dir}→{new_dir} FAILED"
                 log.error("[%s] live flip failed: %s", name.upper(), live_error)
 
+        trade_rec = {
+            "ts": state["last_flip_ts"],
+            "bot": name, "symbol": symbol, "qs_symbol": qs_symbol,
+            "action": action, "price": price, "prev_dir": prev_dir,
+            "new_dir": new_dir, "agree": agree, "total": total,
+            "closed_pnl_delta": round(sim_pnl_delta, 4),
+            "cumulative_pnl": state["sim_pnl"],
+            "bu_order_id": state.get("bu_order_id"),
+            "mode": "LIVE" if not dry_run else "DRY",
+            "live_error": live_error,
+            "strategies": qs_signals,
+        }
         TRADE_LOG.parent.mkdir(parents=True, exist_ok=True)
         with open(TRADE_LOG, "a", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "ts": state["last_flip_ts"],
-                "bot": name, "symbol": symbol, "qs_symbol": qs_symbol,
-                "action": action, "price": price, "prev_dir": prev_dir,
-                "new_dir": new_dir, "agree": agree, "total": total,
-                "closed_pnl_delta": round(sim_pnl_delta, 4),
-                "cumulative_pnl": state["sim_pnl"],
-                "bu_order_id": state.get("bu_order_id"),
-                "mode": "LIVE" if not dry_run else "DRY",
-                "live_error": live_error,
-                "strategies": qs_signals,
-            }, ensure_ascii=False) + "\n")
+            f.write(json.dumps(trade_rec, ensure_ascii=False) + "\n")
+        # Cloud mirror
+        try:
+            from qsignals_cloud_sync import push_trade
+            push_trade(trade_rec)
+        except Exception:
+            pass
 
     state["last_ts"] = datetime.now(timezone.utc).isoformat()
     state["last_price"] = price
@@ -263,6 +276,8 @@ def main():
     ap.add_argument("--interval", type=int, default=60, help="Loop minutes")
     ap.add_argument("--bot", type=str, help="Single bot only")
     ap.add_argument("--config", type=str, default=str(CONFIG_PATH))
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Force shadow mode (override config dry_run). Can only make safer; never places orders.")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -271,6 +286,10 @@ def main():
     bots_cfg = cfg.get("bots", {})
     log = setup_logger("DEBUG" if args.verbose else "INFO")
 
+    # --dry-run forces shadow regardless of config, so the cloud deploy can never
+    # place real orders even if the committed config has dry_run=false.
+    if args.dry_run:
+        global_cfg["dry_run"] = True
     dry_run = bool(global_cfg.get("dry_run", True))
     log.info("=" * 60)
     log.info("Q-SIGNALS Bot Manager — %s", "DRY RUN (shadow)" if dry_run else "!!! LIVE MODE — REAL ORDERS !!!")

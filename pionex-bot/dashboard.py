@@ -465,4 +465,18 @@ if __name__ == "__main__":
     print(f"  State dir:  {STATE_DIR}")
     print(f"  Auth: sensitive APIs require token (DASHBOARD_TOKEN env or default)")
     print(f"  Bind: {host} ({'public' if host == '0.0.0.0' else 'local only — use --public for external access'})")
+
+    # Optional: launch the Q-SIGNALS shadow worker in the same container so the
+    # dashboard has live signal data. Always forced to --dry-run (no real orders).
+    # Enable on the deploy with RUN_WORKERS=1.
+    if os.getenv("RUN_WORKERS") == "1":
+        import subprocess
+        qs_interval = os.getenv("QS_INTERVAL_MIN", "60")
+        print(f"  Launching Q-SIGNALS shadow worker (--dry-run, every {qs_interval} min)...")
+        try:
+            subprocess.Popen([sys.executable, str(BOT_DIR / "qsignals_bot_manager.py"),
+                              "--loop", "--dry-run", "--interval", qs_interval])
+        except Exception as e:
+            print(f"  [warn] worker launch failed: {e}")
+
     app.run(host=host, port=port, debug=False)
