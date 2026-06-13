@@ -64,16 +64,21 @@ from notifier import get_notifier
 # ── Pionex API Client (standalone, no Config dependency) ─
 
 def load_api_keys() -> tuple[str, str]:
-    """Load API keys from ~/.pionex/config.toml."""
+    """Load API keys from ~/.pionex/config.toml, falling back to env vars
+    (PIONEX_API_KEY / PIONEX_API_SECRET) for cloud deploys without the file."""
     config_path = Path.home() / ".pionex" / "config.toml"
     key, secret = "", ""
-    with open(config_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("api_key"):
-                key = line.split("=", 1)[1].strip().strip('"').strip("'")
-            elif line.startswith("secret_key"):
-                secret = line.split("=", 1)[1].strip().strip('"').strip("'")
+    if config_path.exists():
+        with open(config_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("api_key"):
+                    key = line.split("=", 1)[1].strip().strip('"').strip("'")
+                elif line.startswith("secret_key"):
+                    secret = line.split("=", 1)[1].strip().strip('"').strip("'")
+    if not key or not secret:
+        key = key or os.getenv("PIONEX_API_KEY", "")
+        secret = secret or os.getenv("PIONEX_API_SECRET", "") or os.getenv("PIONEX_SECRET_KEY", "")
     return key, secret
 
 
